@@ -4,9 +4,11 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { MatchStatus } from 'src/common/enums/MatchStatus';
+import { MatchResult } from './match-result.entity';
 import { Room } from './room.entity';
 import { TypingPassage } from './typing-passage.entity';
 
@@ -46,4 +48,7 @@ export class Match {
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at!: Date;
+
+  @OneToMany(() => MatchResult, (result) => result.match)
+  results?: MatchResult[];
 }

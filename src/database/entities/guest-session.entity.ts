@@ -8,8 +8,10 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { MatchResult } from './match-result.entity';
 import { Room } from './room.entity';
 import { RoomPlayer } from './room-player.entity';
+import { SoloTypingResult } from './solo-typing-result.entity';
 import { User } from './user.entity';
 
 @Entity('guest_sessions')
@@ -42,4 +44,10 @@ export class GuestSession {
 
   @OneToMany(() => RoomPlayer, (player) => player.guest)
   room_players?: RoomPlayer[];
+
+  @OneToMany(() => MatchResult, (result) => result.guest)
+  match_results?: MatchResult[];
+
+  @OneToMany(() => SoloTypingResult, (result) => result.guest)
+  solo_typing_results?: SoloTypingResult[];
 }

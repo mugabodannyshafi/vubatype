@@ -13,6 +13,7 @@ import { PassageMode } from 'src/common/enums/PassageMode';
 import { WordDifficulty } from 'src/common/enums/WordDifficulty';
 import { Language } from './language.entity';
 import { Match } from './match.entity';
+import { SoloTypingResult } from './solo-typing-result.entity';
 
 @Entity('typing_passages')
 export class TypingPassage {
@@ -59,4 +60,7 @@ export class TypingPassage {
 
   @OneToMany(() => Match, (match) => match.passage)
   matches?: Match[];
+
+  @OneToMany(() => SoloTypingResult, (result) => result.passage)
+  solo_typing_results?: SoloTypingResult[];
 }
