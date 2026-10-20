@@ -1,7 +1,9 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { EntityModel } from './EntityModel';
 import { UserStatus } from 'src/common/enums/UserStatus';
+import { Language } from './language.entity';
+import { GuestSession } from './guest-session.entity';
 
 @Entity('users')
 export class User extends EntityModel {
@@ -24,8 +26,14 @@ export class User extends EntityModel {
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatar_url?: string | null;
 
-  @Column({ type: 'bigint', nullable: true })
-  preferred_language_id?: string | null;
+  @ManyToOne(() => Language, (language) => language.preferred_by_users, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'preferred_language_id' })
+  preferred_language?: Language | null;
+
+  @OneToMany(() => GuestSession, (session) => session.user)
+  guest_sessions?: GuestSession[];
 
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status!: UserStatus;
