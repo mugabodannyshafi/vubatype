@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { MatchStatus } from 'src/common/enums/MatchStatus';
+import { MatchParticipant } from './match-participant.entity';
 import { MatchResult } from './match-result.entity';
 import { Room } from './room.entity';
 import { TypingPassage } from './typing-passage.entity';
@@ -51,4 +52,7 @@ export class Match {
 
   @OneToMany(() => MatchResult, (result) => result.match)
   results?: MatchResult[];
+
+  @OneToMany(() => MatchParticipant, (participant) => participant.match)
+  participants?: MatchParticipant[];
 }

@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { MatchParticipant } from './match-participant.entity';
 import { MatchResult } from './match-result.entity';
 import { Room } from './room.entity';
 import { RoomPlayer } from './room-player.entity';
@@ -44,6 +45,9 @@ export class GuestSession {
 
   @OneToMany(() => RoomPlayer, (player) => player.guest)
   room_players?: RoomPlayer[];
+
+  @OneToMany(() => MatchParticipant, (participant) => participant.guest)
+  match_participants?: MatchParticipant[];
 
   @OneToMany(() => MatchResult, (result) => result.guest)
   match_results?: MatchResult[];
