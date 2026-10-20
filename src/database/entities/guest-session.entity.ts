@@ -4,9 +4,12 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { Room } from './room.entity';
+import { RoomPlayer } from './room-player.entity';
 import { User } from './user.entity';
 
 @Entity('guest_sessions')
@@ -33,4 +36,10 @@ export class GuestSession {
 
   @Column({ type: 'timestamp', nullable: true })
   last_seen_at?: Date | null;
+
+  @OneToMany(() => Room, (room) => room.host_guest)
+  hosted_rooms?: Room[];
+
+  @OneToMany(() => RoomPlayer, (player) => player.guest)
+  room_players?: RoomPlayer[];
 }

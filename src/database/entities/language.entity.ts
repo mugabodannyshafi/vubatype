@@ -1,4 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
+import { Room } from './room.entity';
+import { TypingPassage } from './typing-passage.entity';
 import { TypingWord } from './typing-word.entity';
 import { User } from './user.entity';
 
@@ -24,4 +26,10 @@ export class Language {
 
   @OneToMany(() => User, (user) => user.preferred_language)
   preferred_by_users?: User[];
+
+  @OneToMany(() => TypingPassage, (passage) => passage.language)
+  typing_passages?: TypingPassage[];
+
+  @OneToMany(() => Room, (room) => room.language)
+  rooms?: Room[];
 }
