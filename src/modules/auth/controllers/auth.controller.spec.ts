@@ -16,7 +16,9 @@ describe('AuthController', () => {
   const mockUser = {
     id: '1',
     email: 'test@example.com',
-    password: 'hashedPassword',
+    username: 'testuser',
+    display_name: 'Test User',
+    password_hash: 'hashedPassword',
   };
 
   const mockAccessToken = {
@@ -55,20 +57,31 @@ describe('AuthController', () => {
       const registerDto: RegisterDto = {
         email: 'newuser@example.com',
         password: 'password123',
+        username: 'newuser',
+        display_name: 'New User',
       };
 
       mockAuthService.register.mockResolvedValue({
         id: '2',
         email: registerDto.email,
+        username: registerDto.username,
+        display_name: registerDto.display_name,
       });
 
       const result = await controller.register(registerDto);
 
-      expect(authService.register).toHaveBeenCalledWith(registerDto.email, registerDto.password);
+      expect(authService.register).toHaveBeenCalledWith(
+        registerDto.email,
+        registerDto.password,
+        registerDto.username,
+        registerDto.display_name,
+      );
       expect(authService.register).toHaveBeenCalledTimes(1);
       expect(result).toEqual({
         id: '2',
         email: registerDto.email,
+        username: registerDto.username,
+        display_name: registerDto.display_name,
       });
     });
 
@@ -76,12 +89,19 @@ describe('AuthController', () => {
       const registerDto: RegisterDto = {
         email: 'existing@example.com',
         password: 'password123',
+        username: 'existing',
+        display_name: 'Existing User',
       };
 
       mockAuthService.register.mockRejectedValue(new Error('User already exists'));
 
       await expect(controller.register(registerDto)).rejects.toThrow('User already exists');
-      expect(authService.register).toHaveBeenCalledWith(registerDto.email, registerDto.password);
+      expect(authService.register).toHaveBeenCalledWith(
+        registerDto.email,
+        registerDto.password,
+        registerDto.username,
+        registerDto.display_name,
+      );
     });
   });
 

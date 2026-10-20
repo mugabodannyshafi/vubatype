@@ -50,6 +50,8 @@ describe('Authentication (e2e)', () => {
         .send({
           email: 'newuser@example.com',
           password: 'Password123!',
+          username: 'newuser',
+          display_name: 'New User',
         })
         .expect(201)
         .expect((res) => {
@@ -57,7 +59,10 @@ describe('Authentication (e2e)', () => {
           expect(res.body).toHaveProperty('user');
           expect(res.body.user).toHaveProperty('id');
           expect(res.body.user).toHaveProperty('email', 'newuser@example.com');
+          expect(res.body.user).toHaveProperty('username', 'newuser');
+          expect(res.body.user).toHaveProperty('display_name', 'New User');
           expect(res.body.user).not.toHaveProperty('password');
+          expect(res.body.user).not.toHaveProperty('password_hash');
         });
     });
 
@@ -65,6 +70,8 @@ describe('Authentication (e2e)', () => {
       const userData = {
         email: 'duplicate@example.com',
         password: 'Password123!',
+        username: 'duplicate',
+        display_name: 'Duplicate User',
       };
 
       // First registration
@@ -86,6 +93,8 @@ describe('Authentication (e2e)', () => {
         .send({
           email: 'invalid-email',
           password: 'Password123!',
+          username: 'invalid',
+          display_name: 'Invalid User',
         })
         .expect(400);
     });
@@ -95,6 +104,8 @@ describe('Authentication (e2e)', () => {
         .post('/auth/register')
         .send({
           email: 'test@example.com',
+          username: 'testuser',
+          display_name: 'Test User',
         })
         .expect(400);
     });
@@ -110,6 +121,8 @@ describe('Authentication (e2e)', () => {
       const response = await request(app.getHttpServer()).post('/auth/register').send({
         email: 'loginuser@example.com',
         password: 'Password123!',
+        username: 'loginuser',
+        display_name: 'Login User',
       });
 
       userId = response.body.user.id;
@@ -128,7 +141,10 @@ describe('Authentication (e2e)', () => {
           expect(res.body).toHaveProperty('user');
           expect(res.body.user).toHaveProperty('id', userId);
           expect(res.body.user).toHaveProperty('email', 'loginuser@example.com');
+          expect(res.body.user).toHaveProperty('username', 'loginuser');
+          expect(res.body.user).toHaveProperty('display_name', 'Login User');
           expect(res.body.user).not.toHaveProperty('password');
+          expect(res.body.user).not.toHaveProperty('password_hash');
           accessToken = res.body.access_token;
         });
     });
@@ -160,6 +176,8 @@ describe('Authentication (e2e)', () => {
       const response = await request(app.getHttpServer()).post('/auth/register').send({
         email: 'profileuser@example.com',
         password: 'Password123!',
+        username: 'profileuser',
+        display_name: 'Profile User',
       });
 
       accessToken = response.body.access_token;
@@ -175,6 +193,7 @@ describe('Authentication (e2e)', () => {
           expect(res.body).toHaveProperty('id', userId);
           expect(res.body).toHaveProperty('email', 'profileuser@example.com');
           expect(res.body).not.toHaveProperty('password');
+          expect(res.body).not.toHaveProperty('password_hash');
         });
     });
 
@@ -215,6 +234,8 @@ describe('Authentication (e2e)', () => {
         .send({
           email: userEmail,
           password: userPassword,
+          username: 'flowtest',
+          display_name: 'Flow Test',
         })
         .expect(201);
 

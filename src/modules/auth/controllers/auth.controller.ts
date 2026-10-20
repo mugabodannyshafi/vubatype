@@ -27,7 +27,12 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 409, description: 'User already exists' })
   async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto.email, registerDto.password);
+    return this.authService.register(
+      registerDto.email,
+      registerDto.password,
+      registerDto.username,
+      registerDto.display_name,
+    );
   }
 
   @UseGuards(LocalAuthGuard)

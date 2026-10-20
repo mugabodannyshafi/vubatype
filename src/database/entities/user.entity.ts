@@ -1,31 +1,32 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { EntityModel } from './EntityModel';
+import { UserStatus } from 'src/common/enums/UserStatus';
 
 @Entity('users')
-export class User {
+export class User extends EntityModel {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
-  @Column({ unique: true })
-  email: string;
+  @Column({ type: 'varchar', length: 50, unique: true })
+  username!: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 150, unique: true, nullable: true })
+  email?: string | null;
+
   @Exclude()
-  password: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  password_hash?: string | null;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @Column({ type: 'varchar', length: 100 })
+  display_name!: string;
 
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  avatar_url?: string | null;
 
-  constructor(partial: Partial<User>) {
-    Object.assign(this, partial);
-  }
+  @Column({ type: 'bigint', nullable: true })
+  preferred_language_id?: string | null;
+
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
+  status!: UserStatus;
 }

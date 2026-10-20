@@ -11,7 +11,16 @@ export class UserService {
     return this.userRepository.findOne({ where: { email } });
   }
 
-  async create(userData: { email: string; password: string }) {
+  async findByUsername(username: string) {
+    return this.userRepository.findOne({ where: { username } });
+  }
+
+  async create(userData: {
+    email: string;
+    username: string;
+    display_name: string;
+    password_hash: string;
+  }) {
     const user = this.userRepository.create(userData);
     return this.userRepository.save(user);
   }

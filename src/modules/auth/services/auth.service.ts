@@ -12,8 +12,8 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.userService.findByEmail(email);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
+    if (user?.password_hash && (await bcrypt.compare(password, user.password_hash))) {
+      const { password_hash, ...result } = user;
       return result;
     }
     return null;
@@ -26,24 +26,32 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
+        display_name: user.display_name,
       },
     };
   }
 
-  async register(email: string, password: string) {
-    // Check if user already exists
+  async register(email: string, password: string, username: string, display_name: string) {
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const existingUsername = await this.userService.findByUsername(username);
+    if (existingUsername) {
+      throw new ConflictException('User with this username already exists');
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
     const user = await this.userService.create({
       email,
-      password: hashedPassword,
+      username,
+      display_name,
+      password_hash,
     });
 
-    const { password: _, ...result } = user;
+    const { password_hash: _, ...result } = user;
     return this.login(result);
   }
 

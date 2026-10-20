@@ -17,7 +17,9 @@ describe('UserService', () => {
   const mockUser = {
     id: 'b1bf6d86-afee-43d1-8a3f-d13fe3147824',
     email: 'test@example.com',
-    password: '$2b$10$jEEstRcnSFaYO/JOao.zfeUzB7spE9p/YN5FWnw2aL24UT0jCL4ze',
+    username: 'testuser',
+    display_name: 'Test User',
+    password_hash: '$2b$10$jEEstRcnSFaYO/JOao.zfeUzB7spE9p/YN5FWnw2aL24UT0jCL4ze',
     createdAt: new Date('2025-10-09T15:18:29.155Z'),
     updatedAt: new Date('2025-10-09T15:18:29.155Z'),
   };
@@ -102,7 +104,9 @@ describe('UserService', () => {
     it('should create and save a new user', async () => {
       const userData = {
         email: 'newuser@example.com',
-        password: '$2b$10$hashedPassword',
+        username: 'newuser',
+        display_name: 'New User',
+        password_hash: '$2b$10$hashedPassword',
       };
 
       const createdUser = {
@@ -126,7 +130,9 @@ describe('UserService', () => {
     it('should create user with only required fields', async () => {
       const userData = {
         email: 'minimal@example.com',
-        password: '$2b$10$anotherHash',
+        username: 'minimal',
+        display_name: 'Minimal User',
+        password_hash: '$2b$10$anotherHash',
       };
 
       mockUserRepository.create.mockReturnValue(userData);
@@ -142,14 +148,18 @@ describe('UserService', () => {
       expect(repository.create).toHaveBeenCalledWith(userData);
       expect(repository.create).toHaveBeenCalledWith({
         email: expect.any(String),
-        password: expect.any(String),
+        username: expect.any(String),
+        display_name: expect.any(String),
+        password_hash: expect.any(String),
       });
     });
 
     it('should handle save errors', async () => {
       const userData = {
         email: 'error@example.com',
-        password: '$2b$10$hash',
+        username: 'erroruser',
+        display_name: 'Error User',
+        password_hash: '$2b$10$hash',
       };
 
       mockUserRepository.create.mockReturnValue(userData);
@@ -163,7 +173,9 @@ describe('UserService', () => {
     it('should properly hash and store password', async () => {
       const userData = {
         email: 'secure@example.com',
-        password: '$2b$10$jEEstRcnSFaYO/JOao.zfeUzB7spE9p/YN5FWnw2aL24UT0jCL4ze',
+        username: 'secure',
+        display_name: 'Secure User',
+        password_hash: '$2b$10$jEEstRcnSFaYO/JOao.zfeUzB7spE9p/YN5FWnw2aL24UT0jCL4ze',
       };
 
       const savedUser = {
@@ -178,8 +190,8 @@ describe('UserService', () => {
 
       const result = await service.create(userData);
 
-      expect(result.password).toBe(userData.password);
-      expect(result.password).toMatch(/^\$2b\$/);
+      expect(result.password_hash).toBe(userData.password_hash);
+      expect(result.password_hash).toMatch(/^\$2b\$/);
     });
   });
 
@@ -240,7 +252,9 @@ describe('UserService', () => {
       const completeUser = {
         id: 'f5f5f5f5-5555-5555-5555-555555555555',
         email: 'complete@example.com',
-        password: '$2b$10$completeHash',
+        username: 'complete',
+        display_name: 'Complete User',
+        password_hash: '$2b$10$completeHash',
         createdAt: new Date('2025-10-09T15:18:29.155Z'),
         updatedAt: new Date('2025-10-09T16:30:45.678Z'),
       };
@@ -252,7 +266,9 @@ describe('UserService', () => {
       expect(result).toEqual(completeUser);
       expect(result).toHaveProperty('id');
       expect(result).toHaveProperty('email');
-      expect(result).toHaveProperty('password');
+      expect(result).toHaveProperty('password_hash');
+      expect(result).toHaveProperty('username');
+      expect(result).toHaveProperty('display_name');
       expect(result).toHaveProperty('createdAt');
       expect(result).toHaveProperty('updatedAt');
     });

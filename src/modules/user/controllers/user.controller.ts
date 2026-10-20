@@ -15,6 +15,12 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'User profile retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCurrentUser(@Request() req) {
-    return this.userService.findById(req.user.id);
+    const user = await this.userService.findById(req.user.id);
+    if (!user) {
+      return user;
+    }
+
+    const { password_hash, ...result } = user;
+    return result;
   }
 }

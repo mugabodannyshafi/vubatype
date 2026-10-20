@@ -13,7 +13,9 @@ describe('UserController', () => {
   const mockUser = {
     id: 'b1bf6d86-afee-43d1-8a3f-d13fe3147824',
     email: 'test@example.com',
-    password: '$2b$10$jEEstRcnSFaYO/JOao.zfeUzB7spE9p/YN5FWnw2aL24UT0jCL4ze',
+    username: 'testuser',
+    display_name: 'Test User',
+    password_hash: '$2b$10$jEEstRcnSFaYO/JOao.zfeUzB7spE9p/YN5FWnw2aL24UT0jCL4ze',
     createdAt: new Date('2025-10-09T15:18:29.155Z'),
     updatedAt: new Date('2025-10-09T15:18:29.155Z'),
   };
@@ -56,7 +58,16 @@ describe('UserController', () => {
 
       expect(userService.findById).toHaveBeenCalledWith('b1bf6d86-afee-43d1-8a3f-d13fe3147824');
       expect(userService.findById).toHaveBeenCalledTimes(1);
-      expect(result).toEqual(mockUser);
+      expect(result).toEqual({
+        id: mockUser.id,
+        email: mockUser.email,
+        username: mockUser.username,
+        display_name: mockUser.display_name,
+        createdAt: mockUser.createdAt,
+        updatedAt: mockUser.updatedAt,
+      });
+      expect(result).not.toHaveProperty('password_hash');
+      expect(result).not.toHaveProperty('password');
     });
 
     it('should return user with complete profile data', async () => {
@@ -70,7 +81,9 @@ describe('UserController', () => {
       const completeUser = {
         id: 'c2cf7e97-bfff-54e2-9b4g-e24gf4258935',
         email: 'another@example.com',
-        password: '$2b$10$anotherHashedPassword123456789',
+        username: 'another',
+        display_name: 'Another User',
+        password_hash: '$2b$10$anotherHashedPassword123456789',
         createdAt: new Date('2025-10-08T10:30:00.000Z'),
         updatedAt: new Date('2025-10-09T14:45:00.000Z'),
       };
@@ -80,7 +93,14 @@ describe('UserController', () => {
       const result = await controller.getCurrentUser(mockRequest);
 
       expect(userService.findById).toHaveBeenCalledWith('c2cf7e97-bfff-54e2-9b4g-e24gf4258935');
-      expect(result).toEqual(completeUser);
+      expect(result).toEqual({
+        id: completeUser.id,
+        email: completeUser.email,
+        username: completeUser.username,
+        display_name: completeUser.display_name,
+        createdAt: completeUser.createdAt,
+        updatedAt: completeUser.updatedAt,
+      });
       expect(result.id).toBe('c2cf7e97-bfff-54e2-9b4g-e24gf4258935');
       expect(result.email).toBe('another@example.com');
     });
@@ -146,6 +166,9 @@ describe('UserController', () => {
       const userWithoutPassword = {
         id: '1',
         email: 'test@example.com',
+        username: 'testuser',
+        display_name: 'Test User',
+        password_hash: '$2b$10$hash',
         createdAt: new Date(),
       };
 
@@ -153,8 +176,8 @@ describe('UserController', () => {
 
       const result = await controller.getCurrentUser(mockRequest);
 
-      expect(result).toEqual(userWithoutPassword);
       expect(result).not.toHaveProperty('password');
+      expect(result).not.toHaveProperty('password_hash');
     });
   });
 });

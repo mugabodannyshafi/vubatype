@@ -50,6 +50,8 @@ describe('Users (e2e)', () => {
       const response = await request(app.getHttpServer()).post('/auth/register').send({
         email: 'testuser@example.com',
         password: 'Password123!',
+        username: 'testuser',
+        display_name: 'Test User',
       });
 
       accessToken = response.body.access_token;
@@ -64,9 +66,12 @@ describe('Users (e2e)', () => {
         .expect((res) => {
           expect(res.body).toHaveProperty('id', userId);
           expect(res.body).toHaveProperty('email', 'testuser@example.com');
+          expect(res.body).toHaveProperty('username', 'testuser');
+          expect(res.body).toHaveProperty('display_name', 'Test User');
           expect(res.body).toHaveProperty('createdAt');
           expect(res.body).toHaveProperty('updatedAt');
-          expect(res.body).toHaveProperty('password');
+          expect(res.body).not.toHaveProperty('password');
+          expect(res.body).not.toHaveProperty('password_hash');
         });
     });
 
@@ -125,6 +130,8 @@ describe('Users (e2e)', () => {
       const user1Response = await request(app.getHttpServer()).post('/auth/register').send({
         email: 'user1@example.com',
         password: 'Password123!',
+        username: 'user1',
+        display_name: 'User One',
       });
 
       const user1Token = user1Response.body.access_token;
@@ -134,6 +141,8 @@ describe('Users (e2e)', () => {
       const user2Response = await request(app.getHttpServer()).post('/auth/register').send({
         email: 'user2@example.com',
         password: 'Password456!',
+        username: 'user2',
+        display_name: 'User Two',
       });
 
       const user2Token = user2Response.body.access_token;
@@ -170,6 +179,8 @@ describe('Users (e2e)', () => {
       const response = await request(app.getHttpServer()).post('/auth/register').send({
         email: 'persistent@example.com',
         password: 'Password123!',
+        username: 'persistent',
+        display_name: 'Persistent User',
       });
 
       const token = response.body.access_token;
@@ -210,6 +221,8 @@ describe('Users (e2e)', () => {
       await request(app.getHttpServer()).post('/auth/register').send({
         email: 'logintest@example.com',
         password: 'Password123!',
+        username: 'logintest',
+        display_name: 'Login Test',
       });
 
       // Login
@@ -239,6 +252,8 @@ describe('Users (e2e)', () => {
       const user1Response = await request(app.getHttpServer()).post('/auth/register').send({
         email: 'user1@example.com',
         password: 'Password123!',
+        username: 'secureuser1',
+        display_name: 'Secure User One',
       });
 
       const user1Token = user1Response.body.access_token;
@@ -247,6 +262,8 @@ describe('Users (e2e)', () => {
       await request(app.getHttpServer()).post('/auth/register').send({
         email: 'user2@example.com',
         password: 'Password456!',
+        username: 'secureuser2',
+        display_name: 'Secure User Two',
       });
 
       // Try to access with user1's token
