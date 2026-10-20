@@ -1,0 +1,34 @@
+# Dependencies
+/dist
+/node_modules
+/build
+
+# Environment
+.env
+.env.testing
+.env.production
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests
+coverage/
+.nyc_output/
+
+# Temp files
+*.tmp
+*.swp
+.pnpm-store

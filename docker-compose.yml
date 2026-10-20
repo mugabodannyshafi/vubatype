@@ -1,0 +1,94 @@
+services:
+  app:
+    build: .
+    restart: always
+    ports:
+      - '${APP_PORT}:3000'
+    platform: linux/amd64
+    volumes:
+      - '.:/home/app'
+    command:
+      - bash
+      - -c
+      - rm -rf node_modules dist && npm install && npm run start:dev
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-net
+  db:
+    image: 'postgres:16-alpine'
+    ports:
+      - '${FORWARD_DB_PORT:-5432}:5432'
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - 'app-postgres:/var/lib/postgresql/data'
+    networks:
+      - app-net
+    healthcheck:
+      test: ['CMD-SHELL', "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+  db-test:
+    image: 'postgres:16-alpine'
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}_test
+    volumes:
+      - 'app-postgres-testing:/var/lib/postgresql/data'
+    networks:
+      - app-net
+    healthcheck:
+      test: ['CMD-SHELL', "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '${FORWARD_REDIS_PORT:-6379}:6379'
+    volumes:
+      - 'app-redis:/data'
+    networks:
+      - app-net
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      retries: 3
+      timeout: 5s
+  redis-test:
+    image: 'redis:alpine'
+    volumes:
+      - 'app-redis-testing:/data'
+    networks:
+      - app-net
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      retries: 3
+      timeout: 5s
+networks:
+  app-net:
+    driver: bridge
+volumes:
+  app-postgres:
+    driver: local
+  app-postgres-testing:
+    driver: local
+  app-redis:
+    driver: local
+  app-redis-testing:
+    driver: local
