@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GuestModule } from './modules/guest/guest.module';
 import { LanguageModule } from './modules/language/language.module';
+import { PracticeModule } from './modules/practice/practice.module';
 import { LanguageSeeder } from './database/seeders/languages.seeder';
 
 @Module({
@@ -19,6 +20,7 @@ import { LanguageSeeder } from './database/seeders/languages.seeder';
     AuthModule,
     GuestModule,
     LanguageModule,
+    PracticeModule,
   ],
   controllers: [AppController],
   providers: [AppService, LanguageSeeder],
