@@ -11,6 +11,7 @@ import {
   type PracticeSession,
   type StartPracticeInput,
 } from "@/lib/api/practice";
+import { paceSample, type PaceSample } from "@/lib/typing/pace";
 import { resolveSessionClock } from "@/lib/typing/time";
 
 export type PracticePhase = "idle" | "starting" | "typing" | "finishing" | "finished" | "error";
@@ -27,8 +28,8 @@ type SoloPracticeState = {
   startedAt: number | null;
   expiresAt: number | null;
   durationSeconds: number;
-  now: number;
   result: PracticeResult | null;
+  samples: PaceSample[];
   error: PracticeError | null;
 };
 
@@ -39,8 +40,8 @@ const INITIAL_STATE: SoloPracticeState = {
   startedAt: null,
   expiresAt: null,
   durationSeconds: 30,
-  now: 0,
   result: null,
+  samples: [],
   error: null,
 };
 
@@ -105,28 +106,61 @@ export function useSoloPractice() {
   const passageRef = useRef("");
   const typedRef = useRef("");
   const sessionIdRef = useRef<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
+  const durationRef = useRef(INITIAL_STATE.durationSeconds);
+  const samplesRef = useRef<PaceSample[]>([]);
+  const runRef = useRef(0);
   const startLock = useRef(false);
   const finishLock = useRef(false);
+
+  const captureSamples = useCallback((): PaceSample[] => {
+    const startedAt = startedAtRef.current;
+    if (startedAt !== null) {
+      const elapsed = Math.min(Math.max(Date.now() - startedAt, 0), durationRef.current * 1000);
+      const last = samplesRef.current[samplesRef.current.length - 1];
+      const sample = paceSample(passageRef.current, typedRef.current, elapsed);
+      if (!last) {
+        samplesRef.current.push(sample);
+      } else if (elapsed - last.elapsedMs < 300) {
+        samplesRef.current[samplesRef.current.length - 1] = sample;
+      } else {
+        samplesRef.current.push(sample);
+      }
+    }
+
+    return samplesRef.current.map((sample) => ({ ...sample }));
+  }, []);
 
   const finish = useCallback(async () => {
     if (finishLock.current || phaseRef.current !== "typing" || sessionIdRef.current === null) {
       return;
     }
 
+    const runId = runRef.current;
     finishLock.current = true;
     phaseRef.current = "finishing";
+    const samples = captureSamples();
     setState((current) => ({ ...current, phase: "finishing", error: null }));
 
     try {
       const result = await finishPracticeSession(sessionIdRef.current, typedRef.current);
+      if (runRef.current !== runId) {
+        return;
+      }
+
       phaseRef.current = "finished";
       setState((current) => ({
         ...current,
         phase: "finished",
         result,
+        samples,
         error: null,
       }));
     } catch (error) {
+      if (runRef.current !== runId) {
+        return;
+      }
+
       phaseRef.current = "error";
       setState((current) => ({
         ...current,
@@ -134,7 +168,7 @@ export function useSoloPractice() {
         error: practiceError(error, "finish"),
       }));
     }
-  }, []);
+  }, [captureSamples]);
 
   const insertText = useCallback(
     (text: string) => {
@@ -168,32 +202,48 @@ export function useSoloPractice() {
     setState((current) => ({ ...current, typedText: next }));
   }, []);
 
+  const abandon = useCallback(() => {
+    runRef.current += 1;
+    startLock.current = false;
+    finishLock.current = false;
+    sessionIdRef.current = null;
+    passageRef.current = "";
+    typedRef.current = "";
+    startedAtRef.current = null;
+    samplesRef.current = [];
+    phaseRef.current = "idle";
+    setState(INITIAL_STATE);
+  }, []);
+
   const start = useCallback(
     async (input: StartPracticeInput) => {
-      if (
-        startLock.current ||
-        phaseRef.current === "starting" ||
-        phaseRef.current === "typing" ||
-        phaseRef.current === "finishing"
-      ) {
+      if (startLock.current || phaseRef.current === "starting" || phaseRef.current === "finishing") {
         return;
       }
 
+      const runId = runRef.current + 1;
+      runRef.current = runId;
       startLock.current = true;
       finishLock.current = false;
       sessionIdRef.current = null;
       passageRef.current = "";
       typedRef.current = "";
+      startedAtRef.current = null;
+      samplesRef.current = [];
+      durationRef.current = input.duration_seconds;
       phaseRef.current = "starting";
       setState({
         ...INITIAL_STATE,
         phase: "starting",
         durationSeconds: input.duration_seconds,
-        now: Date.now(),
       });
 
       try {
         const session = await openPracticeSession(input);
+        if (runRef.current !== runId) {
+          return;
+        }
+
         if (!session.passage.content) {
           throw new ApiError(400, "No approved words are available for this language and difficulty");
         }
@@ -209,6 +259,9 @@ export function useSoloPractice() {
         sessionIdRef.current = session.id;
         passageRef.current = session.passage.content;
         typedRef.current = "";
+        startedAtRef.current = clock.startedAt;
+        durationRef.current = session.duration_seconds;
+        samplesRef.current = [];
         phaseRef.current = "typing";
         setState({
           phase: "typing",
@@ -217,11 +270,15 @@ export function useSoloPractice() {
           startedAt: clock.startedAt,
           expiresAt: clock.expiresAt,
           durationSeconds: session.duration_seconds,
-          now: receivedAt,
           result: null,
+          samples: [],
           error: null,
         });
       } catch (error) {
+        if (runRef.current !== runId) {
+          return;
+        }
+
         sessionIdRef.current = null;
         passageRef.current = "";
         phaseRef.current = "error";
@@ -232,7 +289,9 @@ export function useSoloPractice() {
           error: practiceError(error, "start"),
         });
       } finally {
-        startLock.current = false;
+        if (runRef.current === runId) {
+          startLock.current = false;
+        }
       }
     },
     [],
@@ -243,25 +302,47 @@ export function useSoloPractice() {
       return;
     }
 
-    const tick = window.setInterval(() => {
-      setState((current) => (current.phase === "typing" ? { ...current, now: Date.now() } : current));
-    }, 200);
     const delay = Math.max(0, state.expiresAt - Date.now());
     const timeout = window.setTimeout(() => {
-      setState((current) => (current.phase === "typing" ? { ...current, now: Date.now() } : current));
       void finish();
     }, delay);
 
     return () => {
-      window.clearInterval(tick);
       window.clearTimeout(timeout);
     };
   }, [finish, state.expiresAt, state.phase]);
+
+  useEffect(() => {
+    if (state.phase !== "typing" || state.startedAt === null) {
+      return;
+    }
+
+    const startedAt = state.startedAt;
+    samplesRef.current = [
+      { elapsedMs: 0, correctChars: 0, typedChars: 0, incorrectChars: 0 },
+    ];
+    let lastSecond = 0;
+    const timer = window.setInterval(() => {
+      const elapsed = Math.min(Math.max(Date.now() - startedAt, 0), durationRef.current * 1000);
+      const second = Math.floor(elapsed / 1000);
+      if (second <= lastSecond) {
+        return;
+      }
+
+      lastSecond = second;
+      samplesRef.current.push(paceSample(passageRef.current, typedRef.current, elapsed));
+    }, 200);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [state.phase, state.startedAt]);
 
   return {
     ...state,
     start,
     insertText,
     backspace,
+    abandon,
   };
 }

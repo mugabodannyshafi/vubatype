@@ -117,15 +117,11 @@
   letter-spacing: 0.02em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  user-select: none;
 }
 
 .typing-char-incorrect {
   background-color: color-mix(in oklab, var(--danger) 18%, transparent);
-  border-radius: 0.125rem;
-}
-
-.typing-char-current {
-  background-color: color-mix(in oklab, var(--accent) 18%, transparent);
   border-radius: 0.125rem;
 }
 
@@ -139,10 +135,18 @@
   animation: typing-caret-blink 1.05s steps(1, end) infinite;
 }
 
-.typing-text-scroll {
-  max-height: calc(1.9em * 4);
-  overflow-x: hidden;
-  overflow-y: auto;
+.typing-text-window {
+  height: calc(3 * 1.9em);
+  overflow: hidden;
+  overflow-anchor: none;
+}
+
+html[data-immersive="true"] header {
+  display: none;
+}
+
+.practice-view {
+  animation: practice-view-in 180ms ease;
 }
 
 @keyframes typing-caret-blink {
@@ -154,6 +158,16 @@
   50%,
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes practice-view-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 
@@ -210,6 +224,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .typing-caret,
+  .practice-view,
   .race-progress,
   .race-runner,
   .race-runner-figure {

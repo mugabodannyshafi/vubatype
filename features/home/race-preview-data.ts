@@ -6,8 +6,8 @@ export type RacePreviewRacer = {
 };
 
 export const RACE_PREVIEW: RacePreviewRacer[] = [
-  { id: "keza", name: "Keza", wpm: 86, progress: 78 },
-  { id: "mugisha", name: "Mugisha", wpm: 74, progress: 64 },
-  { id: "aline", name: "Aline", wpm: 61, progress: 51 },
-  { id: "eric", name: "Eric", wpm: 48, progress: 39 },
+  { id: "Manzi", name: "Manzi", wpm: 86, progress: 78 },
+  { id: "Mugabo", name: "Mugabo", wpm: 74, progress: 64 },
+  { id: "Christella", name: "Christella", wpm: 61, progress: 51 },
+  { id: "Keza", name: "Keza", wpm: 48, progress: 39 },
 ];

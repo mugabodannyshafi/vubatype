@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 
 import type { TypingCharacter, TypingCharState } from "@/lib/types/typing";
 
@@ -8,21 +8,19 @@ const STATE_CLASS: Record<TypingCharState, string> = {
   pending: "text-typing-pending",
   correct: "text-typing-correct",
   incorrect: "typing-char-incorrect text-typing-incorrect underline decoration-typing-incorrect",
-  current: "typing-char-current text-foreground",
+  current: "text-typing-pending",
 };
 
 type TypingTextProps = {
   characters: TypingCharacter[];
   caretIndex?: number | null;
   label?: string;
-  scrollable?: boolean;
 };
 
-export function TypingText({
+export const TypingText = memo(function TypingText({
   characters,
   caretIndex = null,
   label = "Typing text",
-  scrollable = false,
 }: TypingTextProps) {
   const caretRef = useRef<HTMLSpanElement>(null);
   const passage = characters.map((character) => character.char).join("");
@@ -30,43 +28,39 @@ export function TypingText({
 
   useEffect(() => {
     const caret = caretRef.current;
-    const panel = caret?.closest(".typing-text-scroll");
+    const panel = caret?.closest(".typing-text-window");
     if (!caret || !(panel instanceof HTMLElement)) {
       return;
     }
 
-    const caretRect = caret.getBoundingClientRect();
-    const panelRect = panel.getBoundingClientRect();
-    if (caretRect.bottom > panelRect.bottom) {
-      panel.scrollTop += caretRect.bottom - panelRect.bottom;
-    } else if (caretRect.top < panelRect.top) {
-      panel.scrollTop -= panelRect.top - caretRect.top;
+    const lineHeight = Number.parseFloat(getComputedStyle(panel).lineHeight);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+      return;
     }
+
+    const caretTop = caret.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop;
+    panel.scrollTop = Math.max(0, caretTop - lineHeight);
   }, [caretIndex, characters]);
 
   return (
-    <p aria-label={label} className={scrollable ? "typing-text typing-text-scroll" : "typing-text"}>
+    <p aria-label={label} className="typing-text typing-text-window">
       <span className="sr-only">{passage}</span>
       <span aria-hidden="true">
         {characters.map((character, index) => {
-          const showCaret = caretIndex === null ? character.state === "current" : index === caretIndex;
+          const showCaret = index === caretIndex;
           return (
-            <span
-              key={index}
-              ref={showCaret ? caretRef : undefined}
-              className={`relative ${STATE_CLASS[character.state]}`}
-            >
-              {showCaret ? <span className="typing-caret" /> : null}
+            <span key={index} className={`relative ${STATE_CLASS[character.state]}`}>
+              {showCaret ? <span ref={caretRef} className="typing-caret" /> : null}
               {character.char}
             </span>
           );
         })}
         {trailingCaret ? (
-          <span ref={caretRef} className="relative inline-block w-0">
-            <span className="typing-caret" />
+          <span className="relative inline-block w-0">
+            <span ref={caretRef} className="typing-caret" />
           </span>
         ) : null}
       </span>
     </p>
   );
-}
+});
