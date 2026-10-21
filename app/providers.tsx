@@ -4,6 +4,7 @@ import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
 import { LanguageProvider } from "@/components/language/language-provider";
+import { TypingSettingsLockProvider } from "@/components/typing/typing-settings-lock";
 
 type ProvidersProps = {
   children: ReactNode;
@@ -18,7 +19,9 @@ export function Providers({ children }: ProvidersProps) {
       enableSystem={false}
       storageKey="vubatype-theme"
     >
-      <LanguageProvider>{children}</LanguageProvider>
+      <LanguageProvider>
+        <TypingSettingsLockProvider>{children}</TypingSettingsLockProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

@@ -51,11 +51,11 @@
   --segment: #ffffff;
   --segment-foreground: #101318;
 
-  /* #22C55E fails contrast on the light background, so links use a darker green. */
+  /* #22C55E fails contrast on the light background, so links and correct characters use a darker green. */
   --link: #15803d;
 
   --typing-pending: var(--muted);
-  --typing-correct: var(--foreground);
+  --typing-correct: #15803d;
   --typing-incorrect: var(--danger);
   --typing-caret: var(--accent);
 }
@@ -100,7 +100,7 @@
   --link: #22c55e;
 
   --typing-pending: var(--muted);
-  --typing-correct: var(--foreground);
+  --typing-correct: #22c55e;
   --typing-incorrect: var(--danger);
   --typing-caret: var(--accent);
 }
@@ -136,6 +136,93 @@
   left: 0;
   width: 2px;
   background-color: var(--typing-caret);
+  animation: typing-caret-blink 1.05s steps(1, end) infinite;
+}
+
+.typing-text-scroll {
+  max-height: calc(1.9em * 4);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+@keyframes typing-caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.race-lane {
+  --race-progress: 0;
+}
+
+.race-progress {
+  width: calc(var(--race-progress) * 0.62%);
+  animation: race-fill 2.6s ease-in-out infinite;
+}
+
+.race-runner {
+  left: calc(var(--race-progress) * 0.62%);
+  animation: race-advance 2.6s ease-in-out infinite;
+}
+
+.race-runner-figure {
+  animation: race-bob 0.48s ease-in-out infinite;
+}
+
+@keyframes race-fill {
+  0%,
+  100% {
+    width: calc(var(--race-progress) * 0.62%);
+  }
+
+  50% {
+    width: calc(var(--race-progress) * 0.84%);
+  }
+}
+
+@keyframes race-advance {
+  0%,
+  100% {
+    left: calc(var(--race-progress) * 0.62%);
+  }
+
+  50% {
+    left: calc(var(--race-progress) * 0.84%);
+  }
+}
+
+@keyframes race-bob {
+  0%,
+  100% {
+    transform: translateY(1px);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-caret,
+  .race-progress,
+  .race-runner,
+  .race-runner-figure {
+    animation: none;
+  }
+
+  .race-progress {
+    width: calc(var(--race-progress) * 0.84%);
+  }
+
+  .race-runner {
+    left: calc(var(--race-progress) * 0.84%);
+  }
 }
 
 @media (min-width: 40rem) {

@@ -20,8 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "VubaType",
-  description:
-    "A Rwanda-focused typing game for Kinyarwanda and English. Compete with friends and see how fast you can type.",
+  description: "Type fast, race friends, and compete in Kinyarwanda or English.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
