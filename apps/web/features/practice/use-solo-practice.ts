@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/http";
 import { ensureGuestSession } from "@/lib/api/guests";
 import {
+  beginPracticeSession,
   finishPracticeSession,
   startPracticeSession,
   type PracticeResult,
@@ -14,7 +15,7 @@ import {
 import { paceSample, type PaceSample } from "@/lib/typing/pace";
 import { resolveSessionClock } from "@/lib/typing/time";
 
-export type PracticePhase = "idle" | "starting" | "typing" | "finishing" | "finished" | "error";
+export type PracticePhase = "idle" | "starting" | "ready" | "typing" | "finishing" | "finished" | "error";
 
 export type PracticeError = {
   title: string;
@@ -100,6 +101,18 @@ async function openPracticeSession(input: StartPracticeInput): Promise<PracticeS
   }
 }
 
+async function armPracticeSession(id: number): Promise<PracticeSession> {
+  try {
+    return await beginPracticeSession(id);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      await ensureGuestSession();
+      return beginPracticeSession(id);
+    }
+    throw error;
+  }
+}
+
 export function useSoloPractice() {
   const [state, setState] = useState<SoloPracticeState>(INITIAL_STATE);
   const phaseRef = useRef<PracticePhase>(INITIAL_STATE.phase);
@@ -110,8 +123,9 @@ export function useSoloPractice() {
   const durationRef = useRef(INITIAL_STATE.durationSeconds);
   const samplesRef = useRef<PaceSample[]>([]);
   const runRef = useRef(0);
-  const startLock = useRef(false);
   const finishLock = useRef(false);
+  const beginLock = useRef<Promise<void> | null>(null);
+  const clockErrorRef = useRef<unknown>(null);
 
   const captureSamples = useCallback((): PaceSample[] => {
     const startedAt = startedAtRef.current;
@@ -143,6 +157,25 @@ export function useSoloPractice() {
     setState((current) => ({ ...current, phase: "finishing", error: null }));
 
     try {
+      if (beginLock.current) {
+        await beginLock.current;
+      }
+      if (runRef.current !== runId) {
+        return;
+      }
+      if (clockErrorRef.current) {
+        phaseRef.current = "error";
+        setState((current) => ({
+          ...current,
+          phase: "error",
+          error: practiceError(clockErrorRef.current, "start"),
+        }));
+        return;
+      }
+      if (sessionIdRef.current === null) {
+        return;
+      }
+
       const result = await finishPracticeSession(sessionIdRef.current, typedRef.current);
       if (runRef.current !== runId) {
         return;
@@ -170,9 +203,9 @@ export function useSoloPractice() {
     }
   }, [captureSamples]);
 
-  const insertText = useCallback(
+  const typeCharacter = useCallback(
     (text: string) => {
-      if (phaseRef.current !== "typing" || text.length !== 1) {
+      if (text.length !== 1) {
         return;
       }
 
@@ -192,6 +225,87 @@ export function useSoloPractice() {
     [finish],
   );
 
+  const insertText = useCallback(
+    (text: string) => {
+      if (phaseRef.current !== "typing") {
+        return;
+      }
+
+      typeCharacter(text);
+    },
+    [typeCharacter],
+  );
+
+  const armClock = useCallback((sessionId: number, runId: number) => {
+    const pending = armPracticeSession(sessionId)
+      .then((session) => {
+        if (runRef.current !== runId) {
+          return;
+        }
+
+        const clock = resolveSessionClock(
+          session.started_at,
+          session.expires_at,
+          session.duration_seconds,
+          Date.now(),
+        );
+        if (phaseRef.current === "typing" || phaseRef.current === "finishing") {
+          setState((current) => ({ ...current, expiresAt: clock.expiresAt }));
+        }
+      })
+      .catch((error: unknown) => {
+        if (runRef.current !== runId) {
+          return;
+        }
+
+        clockErrorRef.current = error;
+        if (phaseRef.current === "typing") {
+          phaseRef.current = "error";
+          setState((current) => ({
+            ...current,
+            phase: "error",
+            error: practiceError(error, "start"),
+          }));
+        }
+      });
+
+    beginLock.current = pending;
+  }, []);
+
+  const startTyping = useCallback(
+    (text: string) => {
+      if (text.length !== 1) {
+        return;
+      }
+
+      if (phaseRef.current === "typing") {
+        typeCharacter(text);
+        return;
+      }
+
+      if (phaseRef.current !== "ready" || sessionIdRef.current === null) {
+        return;
+      }
+
+      const startedAt = Date.now();
+      const sessionId = sessionIdRef.current;
+      const runId = runRef.current;
+      clockErrorRef.current = null;
+      phaseRef.current = "typing";
+      startedAtRef.current = startedAt;
+      setState((current) => ({
+        ...current,
+        phase: "typing",
+        startedAt,
+        expiresAt: startedAt + durationRef.current * 1000,
+        error: null,
+      }));
+      armClock(sessionId, runId);
+      typeCharacter(text);
+    },
+    [armClock, typeCharacter],
+  );
+
   const backspace = useCallback(() => {
     if (phaseRef.current !== "typing" || typedRef.current.length === 0) {
       return;
@@ -204,97 +318,95 @@ export function useSoloPractice() {
 
   const abandon = useCallback(() => {
     runRef.current += 1;
-    startLock.current = false;
     finishLock.current = false;
     sessionIdRef.current = null;
     passageRef.current = "";
     typedRef.current = "";
     startedAtRef.current = null;
     samplesRef.current = [];
+    beginLock.current = null;
+    clockErrorRef.current = null;
     phaseRef.current = "idle";
     setState(INITIAL_STATE);
   }, []);
 
-  const start = useCallback(
-    async (input: StartPracticeInput) => {
-      if (startLock.current || phaseRef.current === "starting" || phaseRef.current === "finishing") {
+  const prepare = useCallback(async (input: StartPracticeInput, force = false) => {
+    const phase = phaseRef.current;
+    if (!force && (phase === "typing" || phase === "finishing" || phase === "finished")) {
+      return;
+    }
+    if (phase === "finishing") {
+      return;
+    }
+
+    const runId = runRef.current + 1;
+    runRef.current = runId;
+    finishLock.current = false;
+    beginLock.current = null;
+    clockErrorRef.current = null;
+    sessionIdRef.current = null;
+    passageRef.current = "";
+    typedRef.current = "";
+    startedAtRef.current = null;
+    samplesRef.current = [];
+    durationRef.current = input.duration_seconds;
+    phaseRef.current = "starting";
+    setState({
+      ...INITIAL_STATE,
+      phase: "starting",
+      durationSeconds: input.duration_seconds,
+    });
+
+    try {
+      const session = await openPracticeSession(input);
+      if (runRef.current !== runId) {
         return;
       }
 
-      const runId = runRef.current + 1;
-      runRef.current = runId;
-      startLock.current = true;
-      finishLock.current = false;
-      sessionIdRef.current = null;
-      passageRef.current = "";
+      if (!session.passage.content) {
+        throw new ApiError(400, "No approved words are available for this language and difficulty");
+      }
+
+      sessionIdRef.current = session.id;
+      passageRef.current = session.passage.content;
       typedRef.current = "";
       startedAtRef.current = null;
+      durationRef.current = session.duration_seconds;
       samplesRef.current = [];
-      durationRef.current = input.duration_seconds;
-      phaseRef.current = "starting";
+      phaseRef.current = "ready";
+      setState({
+        phase: "ready",
+        passage: session.passage.content,
+        typedText: "",
+        startedAt: null,
+        expiresAt: null,
+        durationSeconds: session.duration_seconds,
+        result: null,
+        samples: [],
+        error: null,
+      });
+    } catch (error) {
+      if (runRef.current !== runId) {
+        return;
+      }
+
+      sessionIdRef.current = null;
+      passageRef.current = "";
+      phaseRef.current = "error";
       setState({
         ...INITIAL_STATE,
-        phase: "starting",
+        phase: "error",
         durationSeconds: input.duration_seconds,
+        error: practiceError(error, "start"),
       });
+    }
+  }, []);
 
-      try {
-        const session = await openPracticeSession(input);
-        if (runRef.current !== runId) {
-          return;
-        }
-
-        if (!session.passage.content) {
-          throw new ApiError(400, "No approved words are available for this language and difficulty");
-        }
-
-        const receivedAt = Date.now();
-        const clock = resolveSessionClock(
-          session.started_at,
-          session.expires_at,
-          session.duration_seconds,
-          receivedAt,
-        );
-
-        sessionIdRef.current = session.id;
-        passageRef.current = session.passage.content;
-        typedRef.current = "";
-        startedAtRef.current = clock.startedAt;
-        durationRef.current = session.duration_seconds;
-        samplesRef.current = [];
-        phaseRef.current = "typing";
-        setState({
-          phase: "typing",
-          passage: session.passage.content,
-          typedText: "",
-          startedAt: clock.startedAt,
-          expiresAt: clock.expiresAt,
-          durationSeconds: session.duration_seconds,
-          result: null,
-          samples: [],
-          error: null,
-        });
-      } catch (error) {
-        if (runRef.current !== runId) {
-          return;
-        }
-
-        sessionIdRef.current = null;
-        passageRef.current = "";
-        phaseRef.current = "error";
-        setState({
-          ...INITIAL_STATE,
-          phase: "error",
-          durationSeconds: input.duration_seconds,
-          error: practiceError(error, "start"),
-        });
-      } finally {
-        if (runRef.current === runId) {
-          startLock.current = false;
-        }
-      }
+  const restart = useCallback(
+    (input: StartPracticeInput) => {
+      void prepare(input, true);
     },
-    [],
+    [prepare],
   );
 
   useEffect(() => {
@@ -340,7 +452,9 @@ export function useSoloPractice() {
 
   return {
     ...state,
-    start,
+    prepare,
+    restart,
+    startTyping,
     insertText,
     backspace,
     abandon,

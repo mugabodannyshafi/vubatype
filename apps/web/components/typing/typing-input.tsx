@@ -14,7 +14,7 @@ type TypingInputProps = {
   onFocus: () => void;
   onInsert: (text: string) => void;
   onRestart: () => void;
-  onStart: () => void;
+  onStart: (text: string) => void;
 };
 
 export function TypingInput({
@@ -72,18 +72,14 @@ export function TypingInput({
 
     if (event.key === "Tab") {
       event.preventDefault();
-      if (mode === "typing") {
-        onRestart();
-      } else {
-        onStart();
-      }
+      onRestart();
       return;
     }
 
     if (mode === "ready") {
       if (event.key.length === 1) {
         event.preventDefault();
-        onStart();
+        onStart(event.key);
       }
       return;
     }

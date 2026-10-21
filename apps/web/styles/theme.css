@@ -141,10 +141,6 @@
   overflow-anchor: none;
 }
 
-html[data-immersive="true"] header {
-  display: none;
-}
-
 .practice-view {
   animation: practice-view-in 180ms ease;
 }

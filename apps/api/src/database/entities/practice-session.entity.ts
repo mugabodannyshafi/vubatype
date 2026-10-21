@@ -35,11 +35,11 @@ export class PracticeSession {
   })
   status!: PracticeSessionStatus;
 
-  @Column({ type: 'timestamp', precision: 3 })
-  started_at!: Date;
+  @Column({ type: 'timestamp', precision: 3, nullable: true })
+  started_at?: Date | null;
 
-  @Column({ type: 'timestamp', precision: 3 })
-  expires_at!: Date;
+  @Column({ type: 'timestamp', precision: 3, nullable: true })
+  expires_at?: Date | null;
 
   @Column({ type: 'timestamp', precision: 3, nullable: true })
   finished_at?: Date | null;

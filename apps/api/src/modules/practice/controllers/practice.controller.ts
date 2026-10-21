@@ -29,13 +29,24 @@ export class PracticeController {
   constructor(private readonly practiceService: PracticeService) {}
 
   @Post('sessions')
-  @ApiOperation({ summary: 'Start a solo typing session' })
+  @ApiOperation({ summary: 'Create a solo typing session without starting the timer' })
   @ApiResponse({ status: 201, description: 'Practice session created' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 401, description: 'Guest session is missing or invalid' })
   @ApiResponse({ status: 404, description: 'Language not found' })
   start(@Body() dto: StartPracticeSessionDto, @Request() req: GuestRequest) {
     return this.practiceService.start(req.guest, dto);
+  }
+
+  @Post('sessions/:id/begin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Start the practice timer on the first keystroke' })
+  @ApiResponse({ status: 200, description: 'Practice timer started' })
+  @ApiResponse({ status: 401, description: 'Guest session is missing or invalid' })
+  @ApiResponse({ status: 404, description: 'Practice session not found' })
+  @ApiResponse({ status: 409, description: 'Practice session is already finished or expired' })
+  begin(@Param('id') id: string, @Request() req: GuestRequest) {
+    return this.practiceService.begin(req.guest, id);
   }
 
   @Get('sessions/:id')
