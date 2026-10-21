@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GuestModule } from './modules/guest/guest.module';
+import { LanguageModule } from './modules/language/language.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { GuestModule } from './modules/guest/guest.module';
     DatabaseModule,
     AuthModule,
     GuestModule,
+    LanguageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
