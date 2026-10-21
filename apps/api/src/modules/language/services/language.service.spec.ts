@@ -64,8 +64,8 @@ describe('LanguageService', () => {
         order: { id: 'ASC' },
       });
       expect(result).toEqual([
-        { id: '1', code: 'rw', name: 'Kinyarwanda' },
-        { id: '2', code: 'en', name: 'English' },
+        { id: 1, code: 'rw', name: 'Kinyarwanda' },
+        { id: 2, code: 'en', name: 'English' },
       ]);
     });
   });
@@ -79,7 +79,7 @@ describe('LanguageService', () => {
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { code: 'en', is_active: true },
       });
-      expect(result).toEqual({ id: '2', code: 'en', name: 'English' });
+      expect(result).toEqual({ id: 2, code: 'en', name: 'English' });
     });
 
     it('should throw NotFoundException when the code is missing', async () => {
