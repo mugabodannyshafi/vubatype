@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 // cookie-parser publishes a CommonJS export, and this project does not enable esModuleInterop.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import cookieParser = require('cookie-parser');
@@ -8,6 +9,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   app.use(cookieParser());
 
@@ -50,6 +52,7 @@ async function bootstrap() {
       'JWT-auth',
     )
     .addCookieAuth('guest_session', { type: 'apiKey', in: 'cookie' }, 'guest_session')
+    .addCookieAuth('auth_session', { type: 'apiKey', in: 'cookie' }, 'auth_session')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);

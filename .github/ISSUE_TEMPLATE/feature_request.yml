@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest an improvement to the VubaType web app or API
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Describe the problem first, then the change you have in mind.
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: Affected application
+      description: Where should this change land?
+      options:
+        - web
+        - api
+        - both
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is difficult or missing today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should VubaType behave instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other approaches you considered.
+    validations:
+      required: false

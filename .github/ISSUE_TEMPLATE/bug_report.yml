@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a problem in the VubaType web app or API
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not include passwords, tokens, or other secrets.
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: Affected application
+      description: Which part of the monorepo shows the problem?
+      options:
+        - web
+        - api
+        - both
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the steps someone else can follow.
+      placeholder: |
+        1. Start the web app and API
+        2. Open /practice
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, browser, Node.js version, and commit if you know them.
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove secrets before pasting.
+    validations:
+      required: false

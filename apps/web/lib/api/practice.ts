@@ -90,6 +90,13 @@ export async function startPracticeSession(input: StartPracticeInput): Promise<P
   return normalizeSession(session);
 }
 
+export async function beginPracticeSession(id: number): Promise<PracticeSession> {
+  const session = await apiFetch<PracticeSession>(`/api/v1/practice/sessions/${id}/begin`, {
+    method: "POST",
+  });
+  return normalizeSession(session);
+}
+
 export async function finishPracticeSession(id: number, typedText: string): Promise<PracticeResult> {
   const result = await apiFetch<PracticeResult>(`/api/v1/practice/sessions/${id}/finish`, {
     method: "POST",

@@ -1,8 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectEntityManager, InjectRepository } from '@nestjs/typeorm';
 import { randomInt } from 'crypto';
 import { DateTime } from 'luxon';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { BaseService } from 'src/base.service';
 import { MatchStatus } from 'src/common/enums/MatchStatus';
 import { RoomStatus } from 'src/common/enums/RoomStatus';
@@ -13,6 +18,7 @@ import { Match } from 'src/database/entities/match.entity';
 import { RoomPlayer } from 'src/database/entities/room-player.entity';
 import { Room } from 'src/database/entities/room.entity';
 import { LanguageInfo, LanguageService } from 'src/modules/language/services/language.service';
+import { raceDurationSeconds } from 'src/modules/race/race.config';
 import { CreateRoomDto } from '../dto/create-room.dto';
 import { RoomMatchesQueryDto } from '../dto/room-matches-query.dto';
 
@@ -30,6 +36,7 @@ const POSTGRES_UNIQUE_VIOLATION = '23505';
 export interface RoomGuestView {
   id: number;
   nickname: string;
+  avatar_url: string | null;
 }
 
 export interface RoomLanguageView {
@@ -87,6 +94,8 @@ export class RoomService extends BaseService {
     private readonly roomRepository: Repository<Room>,
     @InjectRepository(Match)
     private readonly matchRepository: Repository<Match>,
+    @InjectRepository(RoomPlayer)
+    private readonly roomPlayerRepository: Repository<RoomPlayer>,
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
     private readonly languageService: LanguageService,
@@ -144,6 +153,175 @@ export class RoomService extends BaseService {
     );
   }
 
+  async loadByCode(code: string): Promise<Room> {
+    return this.findRoom(code, true);
+  }
+
+  async join(guest: GuestSession, code: string): Promise<RoomView> {
+    const room = await this.findRoom(code, true);
+    if (room.status === RoomStatus.EXPIRED) {
+      throw new ConflictException('Room has expired');
+    }
+
+    const existing = this.playerFor(room, guest.id);
+    if (existing && existing.left_at == null) {
+      return this.toRoomView(room);
+    }
+
+    if (room.status !== RoomStatus.WAITING) {
+      throw new ConflictException('Room is not open for new players');
+    }
+
+    if (existing) {
+      await this.roomPlayerRepository.update(existing.id, { left_at: null, is_ready: false });
+      return this.getByCode(room.code);
+    }
+
+    if (this.activePlayers(room).length >= room.max_players) {
+      throw new ConflictException('Room is full');
+    }
+
+    try {
+      const player = this.roomPlayerRepository.create({
+        room: { id: room.id } as Room,
+        guest: { id: guest.id } as GuestSession,
+        is_ready: false,
+      });
+      await this.roomPlayerRepository.save(player);
+    } catch (error) {
+      if (!this.isMembershipCollision(error)) {
+        throw error;
+      }
+    }
+
+    return this.getByCode(room.code);
+  }
+
+  async leave(guest: GuestSession, code: string): Promise<RoomView> {
+    const room = await this.findRoom(code, true);
+    if (room.status !== RoomStatus.WAITING) {
+      throw new ConflictException('You can only leave before the race begins');
+    }
+
+    const existing = this.playerFor(room, guest.id);
+    if (!existing || existing.left_at != null) {
+      throw new ForbiddenException('You are not in this room');
+    }
+
+    await this.roomPlayerRepository.update(existing.id, {
+      left_at: new Date(),
+      is_ready: false,
+    });
+
+    if (String(room.host_guest.id) === String(guest.id)) {
+      const next = this.activePlayers(room).find(
+        (player) => String(player.guest.id) !== String(guest.id),
+      );
+      if (next) {
+        await this.roomRepository.update(room.id, {
+          host_guest: { id: next.guest.id } as GuestSession,
+        });
+      } else {
+        await this.roomRepository.update(room.id, { status: RoomStatus.EXPIRED });
+      }
+    }
+
+    return this.getByCode(room.code);
+  }
+
+  async setReady(guest: GuestSession, code: string, ready: boolean): Promise<RoomView> {
+    const room = await this.findRoom(code, true);
+    if (room.status !== RoomStatus.WAITING) {
+      throw new ConflictException('Ready status can only change in the lobby');
+    }
+
+    const existing = this.playerFor(room, guest.id);
+    if (!existing || existing.left_at != null) {
+      throw new ForbiddenException('You are not in this room');
+    }
+
+    await this.roomPlayerRepository.update(existing.id, { is_ready: ready });
+    return this.getByCode(room.code);
+  }
+
+  async transferHost(code: string, connectedGuestIds: string[]): Promise<RoomView> {
+    const room = await this.findRoom(code, true);
+    if (room.status !== RoomStatus.WAITING) {
+      return this.toRoomView(room);
+    }
+
+    const connected = new Set(connectedGuestIds.map(String));
+    if (connected.has(String(room.host_guest.id))) {
+      return this.toRoomView(room);
+    }
+
+    const next = this.activePlayers(room).find((player) => connected.has(String(player.guest.id)));
+    if (!next) {
+      return this.toRoomView(room);
+    }
+
+    await this.roomRepository.update(room.id, {
+      host_guest: { id: next.guest.id } as GuestSession,
+    });
+    return this.getByCode(room.code);
+  }
+
+  async expireIfUnoccupied(code: string): Promise<boolean> {
+    const room = await this.findRoom(code, false);
+    if (room.status !== RoomStatus.WAITING && room.status !== RoomStatus.FINISHED) {
+      return false;
+    }
+
+    await this.roomRepository.update(room.id, { status: RoomStatus.EXPIRED });
+    return true;
+  }
+
+  async applyStatus(roomId: string, status: RoomStatus): Promise<void> {
+    await this.roomRepository.update(roomId, { status });
+  }
+
+  async resetLobby(roomId: string): Promise<void> {
+    await this.roomRepository.update(roomId, { status: RoomStatus.WAITING });
+    await this.roomPlayerRepository.update(
+      { room: { id: roomId }, left_at: IsNull() },
+      {
+        is_ready: false,
+      },
+    );
+  }
+
+  assertCanStart(guest: GuestSession, room: Room, connectedGuestIds: string[]): RoomPlayer[] {
+    if (room.status !== RoomStatus.WAITING) {
+      throw new ConflictException('Race cannot be started');
+    }
+    if (String(room.host_guest.id) !== String(guest.id)) {
+      throw new ForbiddenException('Only the host can start the race');
+    }
+
+    const connected = new Set(connectedGuestIds.map(String));
+    const present = this.activePlayers(room).filter((player) =>
+      connected.has(String(player.guest.id)),
+    );
+    if (present.length < 2) {
+      throw new ConflictException('At least two players must be connected');
+    }
+    if (present.some((player) => !player.is_ready)) {
+      throw new ConflictException('Every player must be ready');
+    }
+
+    return present;
+  }
+
+  canStart(room: RoomView, connectedGuestIds: string[], guestId: string): boolean {
+    if (room.status !== RoomStatus.WAITING || room.host.id !== Number(guestId)) {
+      return false;
+    }
+
+    const connected = new Set(connectedGuestIds.map((id) => Number(id)));
+    const present = room.players.filter((player) => connected.has(player.guest.id));
+    return present.length >= 2 && present.every((player) => player.is_ready);
+  }
+
   private async insertRoom(
     manager: EntityManager,
     guest: GuestSession,
@@ -155,7 +333,7 @@ export class RoomService extends BaseService {
       code: this.generateCode(),
       host_guest: { id: guest.id } as GuestSession,
       language: { id: String(language.id) } as Language,
-      duration_seconds: dto.duration_seconds,
+      duration_seconds: raceDurationSeconds(dto.difficulty),
       difficulty: dto.difficulty,
       max_players: dto.max_players,
       status: RoomStatus.WAITING,
@@ -188,7 +366,11 @@ export class RoomService extends BaseService {
     const room = await this.roomRepository.findOne({
       where: { code: this.normalizeCode(code) },
       relations: withPlayers
-        ? { host_guest: true, language: true, players: { guest: true } }
+        ? {
+            host_guest: { avatar: true, user: true },
+            language: true,
+            players: { guest: { avatar: true, user: true } },
+          }
         : undefined,
     });
     if (!room) {
@@ -225,13 +407,7 @@ export class RoomService extends BaseService {
 
   private toRoomView(room: Room): RoomView {
     const hostId = String(room.host_guest.id);
-    const players = (room.players ?? [])
-      .filter((player) => player.left_at == null && player.guest)
-      .sort((left, right) => {
-        const leftJoined = left.joined_at ? left.joined_at.getTime() : 0;
-        const rightJoined = right.joined_at ? right.joined_at.getTime() : 0;
-        return leftJoined - rightJoined;
-      });
+    const players = this.activePlayers(room);
 
     return {
       id: Number(room.id),
@@ -272,10 +448,25 @@ export class RoomService extends BaseService {
     };
   }
 
+  private activePlayers(room: Room): RoomPlayer[] {
+    return (room.players ?? [])
+      .filter((player) => player.left_at == null && player.guest)
+      .sort((left, right) => {
+        const leftJoined = left.joined_at ? left.joined_at.getTime() : 0;
+        const rightJoined = right.joined_at ? right.joined_at.getTime() : 0;
+        return leftJoined - rightJoined;
+      });
+  }
+
+  private playerFor(room: Room, guestId: string): RoomPlayer | undefined {
+    return (room.players ?? []).find((player) => String(player.guest?.id) === String(guestId));
+  }
+
   private toGuestView(guest: GuestSession): RoomGuestView {
     return {
       id: Number(guest.id),
       nickname: guest.nickname,
+      avatar_url: guest.user?.avatar_url || guest.avatar?.asset_path || null,
     };
   }
 
@@ -313,7 +504,8 @@ export class RoomService extends BaseService {
       return null;
     }
 
-    const driverError = (error as { driverError?: UniqueViolation & { code?: string } }).driverError;
+    const driverError = (error as { driverError?: UniqueViolation & { code?: string } })
+      .driverError;
     if (!driverError || driverError.code !== POSTGRES_UNIQUE_VIOLATION) {
       return null;
     }

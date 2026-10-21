@@ -1,6 +1,7 @@
 {
   "name": "vubatype",
   "private": true,
+  "license": "MIT",
   "packageManager": "pnpm@12.14.0",
   "engines": {
     "node": ">=20.9.0"

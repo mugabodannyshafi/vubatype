@@ -1,6 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+// supertest publishes a CommonJS export, and this project does not enable esModuleInterop.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import request = require('supertest');
+// cookie-parser publishes a CommonJS export, and this project does not enable esModuleInterop.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import cookieParser = require('cookie-parser');
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 
@@ -16,6 +21,7 @@ describe('Authentication (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.use(cookieParser());
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -38,9 +44,8 @@ describe('Authentication (e2e)', () => {
   });
 
   afterEach(async () => {
-    // Clean up users table after each test
-    const repository = dataSource.getRepository('User');
-    await repository.clear();
+    await dataSource.query('DELETE FROM guest_sessions');
+    await dataSource.query('DELETE FROM users');
   });
 
   describe('/auth/register (POST)', () => {
@@ -63,6 +68,10 @@ describe('Authentication (e2e)', () => {
           expect(res.body.user).toHaveProperty('display_name', 'New User');
           expect(res.body.user).not.toHaveProperty('password');
           expect(res.body.user).not.toHaveProperty('password_hash');
+          const setCookie = res.headers['set-cookie'];
+          expect(setCookie).toBeDefined();
+          expect(String(setCookie).toLowerCase()).toContain('auth_session=');
+          expect(String(setCookie).toLowerCase()).toContain('httponly');
         });
     });
 
@@ -274,6 +283,38 @@ describe('Authentication (e2e)', () => {
           expect(res.body.id).toBe(registeredUserId);
           expect(res.body.email).toBe(userEmail);
         });
+    });
+  });
+
+  describe('/auth/logout (POST)', () => {
+    it('clears the auth session cookie and keeps bearer login working', async () => {
+      const agent = request.agent(app.getHttpServer());
+      const registered = await agent
+        .post('/auth/register')
+        .send({
+          email: 'cookieuser@example.com',
+          password: 'Password123!',
+          username: 'cookieuser',
+          display_name: 'Cookie User',
+        })
+        .expect(201);
+
+      await agent
+        .get('/users/me')
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.email).toBe('cookieuser@example.com');
+        });
+
+      const logout = await agent.post('/auth/logout').expect(204);
+      expect(String(logout.headers['set-cookie']).toLowerCase()).toContain('auth_session=');
+
+      await agent.get('/users/me').expect(401);
+
+      await request(app.getHttpServer())
+        .get('/users/me')
+        .set('Authorization', `Bearer ${registered.body.access_token}`)
+        .expect(200);
     });
   });
 });

@@ -8,8 +8,10 @@ import { GuestModule } from './modules/guest/guest.module';
 import { LanguageModule } from './modules/language/language.module';
 import { PracticeModule } from './modules/practice/practice.module';
 import { RoomModule } from './modules/room/room.module';
+import { RaceModule } from './modules/race/race.module';
 import { AvatarSeeder } from './database/seeders/avatars.seeder';
 import { LanguageSeeder } from './database/seeders/languages.seeder';
+import { TypingWordSeeder } from './database/seeders/typing-words.seeder';
 
 @Module({
   imports: [
@@ -24,8 +26,9 @@ import { LanguageSeeder } from './database/seeders/languages.seeder';
     LanguageModule,
     PracticeModule,
     RoomModule,
+    RaceModule,
   ],
   controllers: [AppController],
-  providers: [AppService, LanguageSeeder, AvatarSeeder],
+  providers: [AppService, LanguageSeeder, TypingWordSeeder, AvatarSeeder],
 })
 export class AppModule {}

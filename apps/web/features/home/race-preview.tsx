@@ -63,7 +63,9 @@ function RaceLane({ racer, leading }: { racer: RacePreviewRacer; leading: boolea
     <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-foreground">{racer.name}</p>
-        <p className="font-mono text-xs text-muted tabular-nums">{racer.wpm} wpm</p>
+        <p className="truncate font-mono text-xs text-muted tabular-nums">
+          {racer.wpm} wpm{racer.detail ? ` · ${racer.detail}` : ""}
+        </p>
       </div>
       <div
         className="race-lane relative h-10"

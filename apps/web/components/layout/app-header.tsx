@@ -1,10 +1,25 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { AccountMenu } from "@/components/auth/account-menu";
 import { LanguageSelector } from "@/components/language/language-selector";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 import { AppNav } from "./app-nav";
+
+function NavFallback() {
+  return (
+    <nav aria-label="Main" className="flex items-center gap-4">
+      <Link className="text-sm text-muted" href="/practice">
+        Practice
+      </Link>
+      <Link className="text-sm text-muted" href="/#how-it-works">
+        How it works
+      </Link>
+    </nav>
+  );
+}
 
 export function AppHeader() {
   return (
@@ -28,8 +43,11 @@ export function AppHeader() {
             width={1774}
           />
         </Link>
-        <AppNav />
+        <Suspense fallback={<NavFallback />}>
+          <AppNav />
+        </Suspense>
         <div className="ml-auto flex items-center gap-2">
+          <AccountMenu />
           <LanguageSelector />
           <ThemeSwitcher />
         </div>

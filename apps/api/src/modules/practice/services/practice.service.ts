@@ -69,8 +69,15 @@ export interface PracticeResultView {
 type FinishOutcome =
   | { type: 'not_found' }
   | { type: 'completed' }
+  | { type: 'not_started' }
   | { type: 'expired' }
   | { type: 'result'; view: PracticeResultView };
+
+type BeginOutcome =
+  | { type: 'not_found' }
+  | { type: 'completed' }
+  | { type: 'expired' }
+  | { type: 'session'; view: PracticeSessionView };
 
 @Injectable()
 export class PracticeService extends BaseService {
@@ -95,14 +102,13 @@ export class PracticeService extends BaseService {
       difficulty: dto.difficulty,
       durationSeconds: dto.duration_seconds,
     });
-    const startedAt = new Date();
     const session = this.sessionRepository.create({
       guest: { id: guest.id } as GuestSession,
       passage,
       duration_seconds: dto.duration_seconds,
       status: PracticeSessionStatus.ACTIVE,
-      started_at: startedAt,
-      expires_at: new Date(startedAt.getTime() + dto.duration_seconds * 1000),
+      started_at: null,
+      expires_at: null,
     });
     const saved = await this.sessionRepository.save(session);
     saved.passage = passage;
@@ -120,6 +126,7 @@ export class PracticeService extends BaseService {
 
     if (
       session.status === PracticeSessionStatus.ACTIVE &&
+      session.expires_at &&
       new Date().getTime() > session.expires_at.getTime()
     ) {
       await this.sessionRepository.update(session.id, {
@@ -139,6 +146,27 @@ export class PracticeService extends BaseService {
     const id = this.parseId(sessionId, 'Practice session not found');
     const outcome = await this.entityManager.transaction((manager) =>
       this.finishInTransaction(manager, guest.id, id, dto.typed_text),
+    );
+
+    if (outcome.type === 'not_found') {
+      throw new NotFoundException('Practice session not found');
+    }
+    if (outcome.type === 'completed') {
+      throw new ConflictException('Practice session is already finished');
+    }
+    if (outcome.type === 'not_started') {
+      throw new ConflictException('Practice session has not started');
+    }
+    if (outcome.type === 'expired') {
+      throw new ConflictException('Practice session has expired');
+    }
+    return outcome.view;
+  }
+
+  async begin(guest: GuestSession, sessionId: string): Promise<PracticeSessionView> {
+    const id = this.parseId(sessionId, 'Practice session not found');
+    const outcome = await this.entityManager.transaction((manager) =>
+      this.beginInTransaction(manager, guest.id, id),
     );
 
     if (outcome.type === 'not_found') {
@@ -189,6 +217,59 @@ export class PracticeService extends BaseService {
     return this.toResultView(result, result.passage, sessionIds.get(result.id) ?? null);
   }
 
+  private async beginInTransaction(
+    manager: EntityManager,
+    guestId: string,
+    sessionId: string,
+  ): Promise<BeginOutcome> {
+    const locked: Array<{ id: string }> = await manager.query(
+      `SELECT "id"
+       FROM "practice_sessions"
+       WHERE "id" = $1::bigint AND "guest_id" = $2::bigint
+       FOR UPDATE`,
+      [sessionId, guestId],
+    );
+    if (locked.length === 0) {
+      return { type: 'not_found' };
+    }
+
+    const session = await manager.findOne(PracticeSession, {
+      where: { id: sessionId },
+      relations: { passage: { language: true } },
+    });
+    if (!session) {
+      return { type: 'not_found' };
+    }
+    if (session.status === PracticeSessionStatus.COMPLETED) {
+      return { type: 'completed' };
+    }
+
+    const now = new Date();
+    if (session.expires_at && now.getTime() > session.expires_at.getTime()) {
+      if (session.status === PracticeSessionStatus.ACTIVE) {
+        await manager.update(PracticeSession, session.id, {
+          status: PracticeSessionStatus.EXPIRED,
+        });
+        session.status = PracticeSessionStatus.EXPIRED;
+      }
+      return { type: 'expired' };
+    }
+    if (session.status === PracticeSessionStatus.EXPIRED) {
+      return { type: 'expired' };
+    }
+
+    if (!session.started_at || !session.expires_at) {
+      session.started_at = now;
+      session.expires_at = new Date(now.getTime() + session.duration_seconds * 1000);
+      await manager.update(PracticeSession, session.id, {
+        started_at: session.started_at,
+        expires_at: session.expires_at,
+      });
+    }
+
+    return { type: 'session', view: this.toSessionView(session) };
+  }
+
   private async finishInTransaction(
     manager: EntityManager,
     guestId: string,
@@ -215,6 +296,9 @@ export class PracticeService extends BaseService {
     }
     if (session.status === PracticeSessionStatus.COMPLETED) {
       return { type: 'completed' };
+    }
+    if (!session.started_at || !session.expires_at) {
+      return { type: 'not_started' };
     }
 
     const now = new Date();

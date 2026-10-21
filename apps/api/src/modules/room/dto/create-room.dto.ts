@@ -3,7 +3,6 @@ import { IsEnum, IsIn, IsInt, IsString, Max, Min } from 'class-validator';
 import { WordDifficulty } from 'src/common/enums/WordDifficulty';
 
 export const ROOM_LANGUAGE_CODES = ['rw', 'en'] as const;
-export const ROOM_DURATIONS = [15, 30, 60] as const;
 export const ROOM_MIN_PLAYERS = 2;
 export const ROOM_MAX_PLAYERS = 8;
 
@@ -16,11 +15,6 @@ export class CreateRoomDto {
   @ApiProperty({ enum: WordDifficulty, example: WordDifficulty.EASY })
   @IsEnum(WordDifficulty)
   difficulty: WordDifficulty;
-
-  @ApiProperty({ example: 30, enum: ROOM_DURATIONS })
-  @IsInt()
-  @IsIn(ROOM_DURATIONS)
-  duration_seconds: number;
 
   @ApiProperty({ example: 8, minimum: ROOM_MIN_PLAYERS, maximum: ROOM_MAX_PLAYERS })
   @IsInt()

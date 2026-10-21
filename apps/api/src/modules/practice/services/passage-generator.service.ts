@@ -16,6 +16,7 @@ export interface GeneratePassageInput {
   languageId: string;
   difficulty: WordDifficulty;
   durationSeconds: number;
+  source?: string;
 }
 
 @Injectable()
@@ -49,7 +50,7 @@ export class PassageGeneratorService {
       mode: PassageMode.RANDOM_WORDS,
       difficulty: input.difficulty,
       character_count: content.length,
-      source: PRACTICE_PASSAGE_SOURCE,
+      source: input.source ?? PRACTICE_PASSAGE_SOURCE,
       approval_status: ApprovalStatus.APPROVED,
     });
     const saved = await this.passageRepository.save(passage);

@@ -48,6 +48,11 @@ jest.mock('@nestjs/swagger', () => {
 
 jest.mock('@nestjs/typeorm', () => ({
   InjectRepository: () => () => undefined,
+  InjectEntityManager: () => () => undefined,
+}));
+
+jest.mock('../../auth/services/auth.service', () => ({
+  AuthService: class AuthService {},
 }));
 
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
@@ -73,6 +78,11 @@ describe('GuestController', () => {
     endSession: jest.fn(),
     toProfile: jest.fn(),
     findValidByToken: jest.fn(),
+    linkToUser: jest.fn(),
+  };
+
+  const mockAuthService = {
+    validateToken: jest.fn(),
   };
 
   const mockConfigService = {
@@ -84,7 +94,11 @@ describe('GuestController', () => {
       key === 'NODE_ENV' ? 'development' : undefined,
     );
 
-    controller = new GuestController(mockGuestService as never, mockConfigService as never);
+    controller = new GuestController(
+      mockGuestService as never,
+      mockConfigService as never,
+      mockAuthService as never,
+    );
   });
 
   afterEach(() => {
@@ -168,6 +182,45 @@ describe('GuestController', () => {
       expect(res.cookie).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(result.nickname).toBe('Quick Lynx');
+    });
+
+    it('links the guest to the signed-in user without replacing results', async () => {
+      mockGuestService.createOrRestore.mockResolvedValue({
+        guest: guestProfile,
+        created: false,
+        sessionId: '1',
+      });
+      mockAuthService.validateToken.mockResolvedValue({ sub: 'user-1' });
+      const res = { cookie: jest.fn(), status: jest.fn() };
+
+      await controller.create(
+        { nickname: 'Swift Fox' },
+        { cookies: { guest_session: 'raw-token', auth_session: 'jwt-token' } },
+        res as any,
+      );
+
+      expect(mockAuthService.validateToken).toHaveBeenCalledWith('jwt-token');
+      expect(mockGuestService.linkToUser).toHaveBeenCalledWith('1', 'user-1');
+    });
+
+    it('still creates a guest when the auth cookie is invalid', async () => {
+      mockGuestService.createOrRestore.mockResolvedValue({
+        guest: guestProfile,
+        created: true,
+        token: 'raw-token',
+        sessionId: '1',
+      });
+      mockAuthService.validateToken.mockRejectedValue(new Error('Invalid token'));
+      const res = { cookie: jest.fn(), status: jest.fn() };
+
+      const result = await controller.create(
+        { nickname: 'Swift Fox' },
+        { cookies: { auth_session: 'expired' } },
+        res as any,
+      );
+
+      expect(result).toEqual(guestProfile);
+      expect(mockGuestService.linkToUser).not.toHaveBeenCalled();
     });
   });
 

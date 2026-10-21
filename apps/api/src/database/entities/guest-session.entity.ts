@@ -19,6 +19,7 @@ import { User } from './user.entity';
 
 @Entity('guest_sessions')
 @Index('IDX_guest_sessions_avatar_id', ['avatar'])
+@Index('IDX_guest_sessions_user_id', ['user'])
 export class GuestSession {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: string;

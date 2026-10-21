@@ -13,7 +13,7 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.userService.findByEmail(email);
     if (user?.password_hash && (await bcrypt.compare(password, user.password_hash))) {
-      const { password_hash, ...result } = user;
+      const { password_hash: _passwordHash, ...result } = user;
       return result;
     }
     return null;
@@ -58,7 +58,7 @@ export class AuthService {
   async validateToken(token: string) {
     try {
       return this.jwtService.verify(token);
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid token');
     }
   }

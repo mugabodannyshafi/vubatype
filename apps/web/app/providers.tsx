@@ -3,6 +3,7 @@
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
+import { AuthProvider } from "@/components/auth/auth-provider";
 import { LanguageProvider } from "@/components/language/language-provider";
 import { TypingSettingsLockProvider } from "@/components/typing/typing-settings-lock";
 
@@ -20,7 +21,9 @@ export function Providers({ children }: ProvidersProps) {
       storageKey="vubatype-theme"
     >
       <LanguageProvider>
-        <TypingSettingsLockProvider>{children}</TypingSettingsLockProvider>
+        <AuthProvider>
+          <TypingSettingsLockProvider>{children}</TypingSettingsLockProvider>
+        </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );
