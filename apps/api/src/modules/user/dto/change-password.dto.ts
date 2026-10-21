@@ -11,7 +11,8 @@ export class ChangePasswordDto {
 
   @ApiProperty({
     example: 'NewPassword123!',
-    description: 'New password (min 6 characters, uppercase, lowercase, and number or special character)',
+    description:
+      'New password (min 6 characters, uppercase, lowercase, and number or special character)',
     minLength: 6,
   })
   @IsString()

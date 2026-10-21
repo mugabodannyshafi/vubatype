@@ -35,12 +35,7 @@ const MAX_TYPED_TEXT_LENGTH = 4000;
   },
 })
 export class RaceGateway
-  implements
-    OnGatewayInit,
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-    OnModuleInit,
-    OnModuleDestroy
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(RaceGateway.name);
   private readonly socketsByGuest = new Map<string, string>();

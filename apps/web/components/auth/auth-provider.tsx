@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useTypingLanguage } from "@/components/language/language-provider";
-import { ApiError } from "@/lib/api/http";
 import { loginAccount, logoutAccount, registerAccount, type RegisterInput } from "@/lib/api/auth";
 import { getCurrentUser, type AuthUser } from "@/lib/api/users";
 import { isLanguageCode } from "@/lib/constants/languages";
@@ -40,27 +39,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [setLanguage],
   );
 
-  const refresh = useCallback(async () => {
+  const loadUser = useCallback(async () => {
     try {
-      const next = await getCurrentUser();
-      setUser(next);
-      applyPreferredLanguage(next);
-      return next;
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        setUser(null);
-        return null;
-      }
-      setUser(null);
+      return await getCurrentUser();
+    } catch {
       return null;
     }
-  }, [applyPreferredLanguage]);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    const next = await loadUser();
+    setUser(next);
+    if (next) {
+      applyPreferredLanguage(next);
+    }
+    return next;
+  }, [applyPreferredLanguage, loadUser]);
 
   useEffect(() => {
     let cancelled = false;
 
-    refresh()
-      .catch(() => undefined)
+    loadUser()
+      .then((next) => {
+        if (cancelled) {
+          return;
+        }
+        setUser(next);
+        if (next) {
+          applyPreferredLanguage(next);
+        }
+      })
       .finally(() => {
         if (!cancelled) {
           setLoading(false);
@@ -70,7 +78,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [applyPreferredLanguage, loadUser]);
 
   const login = useCallback(
     async (email: string, password: string) => {

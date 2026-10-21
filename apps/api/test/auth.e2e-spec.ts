@@ -299,9 +299,12 @@ describe('Authentication (e2e)', () => {
         })
         .expect(201);
 
-      await agent.get('/users/me').expect(200).expect((res) => {
-        expect(res.body.email).toBe('cookieuser@example.com');
-      });
+      await agent
+        .get('/users/me')
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.email).toBe('cookieuser@example.com');
+        });
 
       const logout = await agent.post('/auth/logout').expect(204);
       expect(String(logout.headers['set-cookie']).toLowerCase()).toContain('auth_session=');

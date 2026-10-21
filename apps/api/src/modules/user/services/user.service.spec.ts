@@ -297,7 +297,9 @@ describe('UserService', () => {
 
       const result = await service.updateProfile(mockUser.id, { display_name: 'Renamed' });
 
-      expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({ display_name: 'Renamed' }));
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ display_name: 'Renamed' }),
+      );
       expect(result?.display_name).toBe('Renamed');
     });
   });
@@ -335,7 +337,9 @@ describe('UserService', () => {
       };
       mockUserRepository.findOne.mockResolvedValue({ ...mockUser });
       mockUserRepository.save.mockResolvedValue(saved);
-      mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser }).mockResolvedValueOnce(saved);
+      mockUserRepository.findOne
+        .mockResolvedValueOnce({ ...mockUser })
+        .mockResolvedValueOnce(saved);
 
       const result = await service.updatePreferredLanguage(mockUser.id, '2');
 

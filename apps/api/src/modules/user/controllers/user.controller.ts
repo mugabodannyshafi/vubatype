@@ -26,7 +26,11 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { LanguageService } from '../../language/services/language.service';
-import { AvatarUploadExceptionFilter, avatarUploadOptions, missingAvatarFile } from '../avatar-upload';
+import {
+  AvatarUploadExceptionFilter,
+  avatarUploadOptions,
+  missingAvatarFile,
+} from '../avatar-upload';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { UpdatePreferencesDto } from '../dto/update-preferences.dto';
 import { UpdateProfileDto } from '../dto/update-profile.dto';

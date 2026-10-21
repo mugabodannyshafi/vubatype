@@ -44,10 +44,7 @@ export class UserService {
     });
   }
 
-  async updateProfile(
-    userId: string,
-    input: { username?: string; display_name?: string },
-  ) {
+  async updateProfile(userId: string, input: { username?: string; display_name?: string }) {
     if (input.username === undefined && input.display_name === undefined) {
       throw new BadRequestException('Provide a username or display name to update');
     }

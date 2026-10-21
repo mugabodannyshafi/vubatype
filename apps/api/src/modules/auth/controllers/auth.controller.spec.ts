@@ -169,9 +169,9 @@ describe('AuthController', () => {
 
       mockAuthService.register.mockRejectedValue(new Error('User already exists'));
 
-      await expect(controller.register(registerDto, { cookies: {} }, response() as any)).rejects.toThrow(
-        'User already exists',
-      );
+      await expect(
+        controller.register(registerDto, { cookies: {} }, response() as any),
+      ).rejects.toThrow('User already exists');
       expect(authService.register).toHaveBeenCalledWith(
         registerDto.email,
         registerDto.password,

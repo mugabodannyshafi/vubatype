@@ -104,7 +104,9 @@ export function sentencesFor(languageCode: string, difficulty: WordDifficulty): 
   const language = RACE_SENTENCES[languageCode];
   const sentences = language?.[difficulty];
   if (!sentences || sentences.length === 0) {
-    throw new BadRequestException('No race sentences are available for this language and difficulty');
+    throw new BadRequestException(
+      'No race sentences are available for this language and difficulty',
+    );
   }
   return sentences;
 }

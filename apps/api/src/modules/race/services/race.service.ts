@@ -23,11 +23,7 @@ import { RoomPlayer } from 'src/database/entities/room-player.entity';
 import { TypingPassage } from 'src/database/entities/typing-passage.entity';
 import { TypingScoreService } from 'src/modules/practice/services/typing-score.service';
 import { RoomService } from 'src/modules/room/services/room.service';
-import {
-  acceptsTypedUpdate,
-  isExactCompletion,
-  scoreRaceProgress,
-} from '../race-progress';
+import { acceptsTypedUpdate, isExactCompletion, scoreRaceProgress } from '../race-progress';
 import { RaceEmitter, RaceStanding, RaceSync } from '../race.types';
 import { RaceTextService } from './race-text.service';
 
@@ -174,11 +170,14 @@ export class RaceService implements OnModuleDestroy {
       passage: runtime.passage,
       duration_seconds: runtime.durationSeconds,
     });
-    runtime.countdownTimer = setTimeout(() => {
-      void this.beginRace(room.code).catch((error: unknown) => {
-        this.logger.error(`Could not start race ${room.code}`, error);
-      });
-    }, Math.max(0, scheduledStart - Date.now()));
+    runtime.countdownTimer = setTimeout(
+      () => {
+        void this.beginRace(room.code).catch((error: unknown) => {
+          this.logger.error(`Could not start race ${room.code}`, error);
+        });
+      },
+      Math.max(0, scheduledStart - Date.now()),
+    );
   }
 
   async progress(guest: GuestSession, code: string, typedText: string): Promise<void> {
@@ -318,11 +317,14 @@ export class RaceService implements OnModuleDestroy {
       deadline_at: runtime.deadlineAt,
       server_now: Date.now(),
     });
-    runtime.deadlineTimer = setTimeout(() => {
-      void this.finish(runtime.code).catch((error: unknown) => {
-        this.logger.error(`Could not finish race ${runtime.code}`, error);
-      });
-    }, Math.max(0, runtime.deadlineAt - Date.now()));
+    runtime.deadlineTimer = setTimeout(
+      () => {
+        void this.finish(runtime.code).catch((error: unknown) => {
+          this.logger.error(`Could not finish race ${runtime.code}`, error);
+        });
+      },
+      Math.max(0, runtime.deadlineAt - Date.now()),
+    );
   }
 
   private async finish(code: string): Promise<void> {

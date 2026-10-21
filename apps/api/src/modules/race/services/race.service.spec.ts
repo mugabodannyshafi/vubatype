@@ -286,10 +286,12 @@ describe('RaceService', () => {
     await jest.advanceTimersByTimeAsync(28_000);
 
     const saved = mockResultRepository.save.mock.calls[0][0] as MatchResult[];
-    expect(saved.map((result) => [result.guest, result.rank_position, result.is_finished])).toEqual([
-      [{ id: '4' }, 1, true],
-      [{ id: '8' }, 2, false],
-    ]);
+    expect(saved.map((result) => [result.guest, result.rank_position, result.is_finished])).toEqual(
+      [
+        [{ id: '4' }, 1, true],
+        [{ id: '8' }, 2, false],
+      ],
+    );
     expect(saved[0].completion_time_ms).toBe(2_000);
     expect(saved[1].completion_time_ms).toBeNull();
     expect(saved[1].status).toBe(MatchResultStatus.UNFINISHED);

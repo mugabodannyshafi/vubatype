@@ -211,7 +211,10 @@ describe('Profile and guest linking (e2e)', () => {
     expect(preferences.body.preferred_language.code).toBe('en');
     expect(preferences.body.id).toBe(registered.body.user.id);
 
-    await request(app.getHttpServer()).patch('/users/me').send({ display_name: 'Nope' }).expect(401);
+    await request(app.getHttpServer())
+      .patch('/users/me')
+      .send({ display_name: 'Nope' })
+      .expect(401);
     await request(app.getHttpServer()).get('/users/me/progress').expect(401);
   });
 });

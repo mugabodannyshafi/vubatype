@@ -41,6 +41,14 @@ export function ProfilePage() {
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progressLoading, setProgressLoading] = useState(true);
+  const [trackedUser, setTrackedUser] = useState(user);
+
+  if (user !== trackedUser) {
+    setTrackedUser(user);
+    setProgress(null);
+    setError(null);
+    setProgressLoading(Boolean(user));
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -54,7 +62,6 @@ export function ProfilePage() {
     }
 
     let cancelled = false;
-    setProgressLoading(true);
     getProgress()
       .then((next) => {
         if (!cancelled) {

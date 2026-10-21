@@ -38,25 +38,26 @@ export function SettingsPage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarMessage, setAvatarMessage] = useState<string | null>(null);
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const [trackedUser, setTrackedUser] = useState(user);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (user !== trackedUser) {
+    setTrackedUser(user);
+    if (user) {
+      setUsername(user.username);
+      setDisplayName(user.display_name);
+      const preferred = user.preferred_language?.code;
+      if (preferred && isLanguageCode(preferred)) {
+        setLanguageCode(preferred);
+      }
+    }
+  }
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
     }
   }, [loading, router, user]);
-
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-    setUsername(user.username);
-    setDisplayName(user.display_name);
-    const preferred = user.preferred_language?.code;
-    if (preferred && isLanguageCode(preferred)) {
-      setLanguageCode(preferred);
-    }
-  }, [user]);
 
   useEffect(() => {
     return () => {

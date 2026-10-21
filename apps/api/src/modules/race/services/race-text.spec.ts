@@ -11,20 +11,25 @@ describe('race text', () => {
   const languages = ['en', 'rw'] as const;
   const difficulties = [WordDifficulty.EASY, WordDifficulty.MEDIUM, WordDifficulty.HARD] as const;
 
-  it.each(languages.flatMap((language) => difficulties.map((difficulty) => [language, difficulty] as const)))(
-    'builds a %s %s passage inside the configured word range',
-    (language, difficulty) => {
-      const target = RACE_DIFFICULTY_TARGETS[difficulty];
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        const content = composeRaceText(sentencesFor(language, difficulty), target.minWords, target.maxWords);
-        const words = countWords(content);
-        expect(words).toBeGreaterThanOrEqual(target.minWords);
-        expect(words).toBeLessThanOrEqual(target.maxWords);
-        expect(content).toMatch(/[.!?]["']?$/);
-        expect(content.includes(' ')).toBe(true);
-      }
-    },
-  );
+  it.each(
+    languages.flatMap((language) =>
+      difficulties.map((difficulty) => [language, difficulty] as const),
+    ),
+  )('builds a %s %s passage inside the configured word range', (language, difficulty) => {
+    const target = RACE_DIFFICULTY_TARGETS[difficulty];
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const content = composeRaceText(
+        sentencesFor(language, difficulty),
+        target.minWords,
+        target.maxWords,
+      );
+      const words = countWords(content);
+      expect(words).toBeGreaterThanOrEqual(target.minWords);
+      expect(words).toBeLessThanOrEqual(target.maxWords);
+      expect(content).toMatch(/[.!?]["']?$/);
+      expect(content.includes(' ')).toBe(true);
+    }
+  });
 
   it('uses punctuation in hard passages', () => {
     for (const language of languages) {
