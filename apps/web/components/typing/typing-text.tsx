@@ -15,12 +15,14 @@ type TypingTextProps = {
   characters: TypingCharacter[];
   caretIndex?: number | null;
   label?: string;
+  contained?: boolean;
 };
 
 export const TypingText = memo(function TypingText({
   characters,
   caretIndex = null,
   label = "Typing text",
+  contained = true,
 }: TypingTextProps) {
   const caretRef = useRef<HTMLSpanElement>(null);
   const passage = characters.map((character) => character.char).join("");
@@ -43,7 +45,7 @@ export const TypingText = memo(function TypingText({
   }, [caretIndex, characters]);
 
   return (
-    <p aria-label={label} className="typing-text typing-text-window">
+      <p aria-label={label} className={contained ? "typing-text typing-text-window" : "typing-text"}>
       <span className="sr-only">{passage}</span>
       <span aria-hidden="true">
         {characters.map((character, index) => {

@@ -2,7 +2,6 @@ import { apiFetch } from "@/lib/api/http";
 import type { LanguageCode } from "@/lib/constants/languages";
 
 export type RaceDifficulty = "easy" | "medium" | "hard";
-export type RaceDuration = 15 | 30 | 60;
 
 export type RoomGuest = {
   id: number;
@@ -38,7 +37,6 @@ export type RoomView = {
 export type CreateRoomInput = {
   language_code: LanguageCode;
   difficulty: RaceDifficulty;
-  duration_seconds: RaceDuration;
   max_players?: number;
 };
 

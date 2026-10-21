@@ -57,7 +57,6 @@ describe('RoomService', () => {
   const dto: CreateRoomDto = {
     language_code: 'rw',
     difficulty: WordDifficulty.EASY,
-    duration_seconds: 30,
     max_players: 8,
   };
 
@@ -111,7 +110,7 @@ describe('RoomService', () => {
       const savedRoom = mockManager.save.mock.calls[0][0] as Room;
       const savedPlayer = mockManager.save.mock.calls[1][0] as RoomPlayer;
       expect(savedRoom.status).toBe(RoomStatus.WAITING);
-      expect(savedRoom.duration_seconds).toBe(30);
+      expect(savedRoom.duration_seconds).toBe(60);
       expect(savedRoom.difficulty).toBe(WordDifficulty.EASY);
       expect(savedRoom.max_players).toBe(8);
       expect(savedRoom.code).toHaveLength(ROOM_CODE_LENGTH);
@@ -133,7 +132,7 @@ describe('RoomService', () => {
         settings: {
           language: { id: 1, code: 'rw', name: 'Kinyarwanda' },
           difficulty: WordDifficulty.EASY,
-          duration_seconds: 30,
+          duration_seconds: 60,
           max_players: 8,
         },
         players: [
@@ -195,6 +194,21 @@ describe('RoomService', () => {
 
       await expect(service.create(guest, dto)).rejects.toThrow('connection lost');
       expect(mockEntityManager.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('stores the time limit for the selected difficulty', async () => {
+      mockEntityManager.transaction.mockImplementation(async (work) => work(mockManager));
+
+      await service.create(guest, { ...dto, difficulty: WordDifficulty.MEDIUM });
+      await service.create(guest, { ...dto, difficulty: WordDifficulty.HARD });
+
+      const saved = mockManager.save.mock.calls
+        .map((call) => call[0] as Room)
+        .filter((room) => room.difficulty != null);
+      expect(saved.map((room) => [room.difficulty, room.duration_seconds])).toEqual([
+        [WordDifficulty.MEDIUM, 90],
+        [WordDifficulty.HARD, 150],
+      ]);
     });
   });
 

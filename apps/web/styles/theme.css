@@ -218,6 +218,14 @@
   }
 }
 
+.live-race-fill {
+  transition: width 120ms linear;
+}
+
+.live-race-car {
+  transition: left 120ms linear;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .typing-caret,
   .practice-view,
@@ -233,6 +241,11 @@
 
   .race-runner {
     left: calc(var(--race-progress) * 0.84%);
+  }
+
+  .live-race-fill,
+  .live-race-car {
+    transition: none;
   }
 }
 

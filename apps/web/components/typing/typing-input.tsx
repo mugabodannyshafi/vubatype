@@ -15,6 +15,7 @@ type TypingInputProps = {
   onInsert: (text: string) => void;
   onRestart: () => void;
   onStart: (text: string) => void;
+  restoreFocus?: boolean;
 };
 
 export function TypingInput({
@@ -28,6 +29,7 @@ export function TypingInput({
   onInsert,
   onRestart,
   onStart,
+  restoreFocus = false,
 }: TypingInputProps) {
   useEffect(() => {
     if (!active) {
@@ -36,6 +38,9 @@ export function TypingInput({
 
     const input = inputRef.current;
     input?.focus({ preventScroll: true });
+    if (restoreFocus) {
+      return;
+    }
 
     const bringIntoView = () => {
       const stage = input?.parentElement;
@@ -53,7 +58,7 @@ export function TypingInput({
     bringIntoView();
     window.visualViewport?.addEventListener("resize", bringIntoView);
     return () => window.visualViewport?.removeEventListener("resize", bringIntoView);
-  }, [active, inputRef]);
+  }, [active, inputRef, restoreFocus]);
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (!active || event.metaKey || event.ctrlKey || event.altKey) {
@@ -110,6 +115,12 @@ export function TypingInput({
       onBlur={(event: FocusEvent<HTMLTextAreaElement>) => {
         event.currentTarget.value = "";
         onBlur();
+        if (!restoreFocus) {
+          return;
+        }
+        window.requestAnimationFrame(() => {
+          inputRef.current?.focus({ preventScroll: true });
+        });
       }}
       onDrop={(event) => event.preventDefault()}
       onFocus={onFocus}

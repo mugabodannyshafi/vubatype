@@ -57,7 +57,7 @@ describe('RaceService', () => {
     resetLobby: jest.fn(),
   };
 
-  const mockPassageGenerator = {
+  const mockRaceText = {
     generate: jest.fn(),
   };
 
@@ -67,7 +67,7 @@ describe('RaceService', () => {
     status: RoomStatus.WAITING,
     duration_seconds: 30,
     difficulty: WordDifficulty.EASY,
-    language: { id: '1' },
+    language: { id: '1', code: 'en' },
     host_guest: host,
   } as Room;
 
@@ -81,7 +81,7 @@ describe('RaceService', () => {
     emitted.length = 0;
     service = new RaceService(
       mockRoomService as never,
-      mockPassageGenerator as never,
+      mockRaceText as never,
       new TypingScoreService(),
       mockMatchRepository as never,
       mockParticipantRepository as never,
@@ -92,7 +92,7 @@ describe('RaceService', () => {
     });
     mockRoomService.loadByCode.mockResolvedValue(room);
     mockRoomService.assertCanStart.mockReturnValue(players);
-    mockPassageGenerator.generate.mockResolvedValue({ id: '9', content: passage });
+    mockRaceText.generate.mockResolvedValue({ id: '9', content: passage });
     jest.useFakeTimers({ now: new Date('2026-10-21T12:00:00.000Z') });
   });
 
@@ -113,7 +113,7 @@ describe('RaceService', () => {
     });
 
     await expect(service.start(rival, code, ['4', '8'])).rejects.toThrow(ForbiddenException);
-    expect(mockPassageGenerator.generate).not.toHaveBeenCalled();
+    expect(mockRaceText.generate).not.toHaveBeenCalled();
     expect(mockManager.save).not.toHaveBeenCalled();
   });
 
@@ -123,18 +123,18 @@ describe('RaceService', () => {
     });
 
     await expect(service.start(host, code, ['4'])).rejects.toThrow(ConflictException);
-    expect(mockPassageGenerator.generate).not.toHaveBeenCalled();
+    expect(mockRaceText.generate).not.toHaveBeenCalled();
   });
 
   it('counts down on the server and then opens the same passage', async () => {
     await service.start(host, 'ab7k2qmn', ['4', '8']);
 
-    expect(mockPassageGenerator.generate).toHaveBeenCalledWith({
+    expect(mockRaceText.generate).toHaveBeenCalledWith({
       languageId: '1',
+      languageCode: 'en',
       difficulty: WordDifficulty.EASY,
-      durationSeconds: 30,
-      source: 'race',
     });
+    expect(mockRaceText.generate).toHaveBeenCalledTimes(1);
     expect(emitted.map((event) => event.event)).toEqual(['race:countdown']);
     expect(emitted[0].payload).toEqual(expect.objectContaining({ passage, duration_seconds: 30 }));
     expect(mockRoomService.applyStatus).not.toHaveBeenCalled();
@@ -205,6 +205,110 @@ describe('RaceService', () => {
     ]);
     expect(Number(saved[0].final_progress)).toBeGreaterThan(Number(saved[1].final_progress));
     expect(saved[0].is_finished).toBe(false);
+    expect(Number(saved[0].net_wpm)).toBe(2);
     expect(emitted.some((event) => event.event === 'race:finished')).toBe(true);
+    expect(mockRaceText.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not advance progress for an incorrect character and ignores a rewrite', async () => {
+    await startRace();
+    await jest.advanceTimersByTimeAsync(1_000);
+    await service.progress(host, code, 'h');
+    await service.progress(host, code, 'hx');
+
+    const standings = emitted.filter((event) => event.event === 'race:standings');
+    const latest = standings[standings.length - 1].payload as {
+      racers: Array<{ guest_id: number; progress: number; finished: boolean }>;
+    };
+    const hostRacer = latest.racers.find((racer) => racer.guest_id === 4);
+    expect(hostRacer?.progress).toBeCloseTo((1 / passage.length) * 100, 2);
+    expect(hostRacer?.finished).toBe(false);
+
+    await expect(service.progress(host, code, 'zz')).rejects.toThrow(
+      new BadRequestException('Progress update does not continue the current text'),
+    );
+    await service.progress(rival, code, 'x'.repeat(passage.length));
+    expect(mockResultRepository.save).not.toHaveBeenCalled();
+    const after = emitted.filter((event) => event.event === 'race:standings');
+    const rivalRacer = (
+      after[after.length - 1].payload as {
+        racers: Array<{ guest_id: number; progress: number; finished: boolean }>;
+      }
+    ).racers.find((racer) => racer.guest_id === 8);
+    expect(rivalRacer?.progress).toBe(0);
+    expect(rivalRacer?.finished).toBe(false);
+  });
+
+  it('locks an early finish and lets the other racer continue', async () => {
+    await startRace();
+    await jest.advanceTimersByTimeAsync(2_000);
+    await service.progress(host, code, passage);
+
+    const afterFinish = emitted.filter((event) => event.event === 'race:standings');
+    const snapshot = afterFinish[afterFinish.length - 1].payload as {
+      racers: Array<{ guest_id: number; finished: boolean; completion_time_ms: number | null }>;
+    };
+    const hostTime = snapshot.racers.find((racer) => racer.guest_id === 4)?.completion_time_ms;
+    expect(hostTime).toBe(2_000);
+    expect(emitted.some((event) => event.event === 'race:finished')).toBe(false);
+
+    const eventsBefore = emitted.length;
+    await service.progress(host, code, passage);
+    await service.progress(host, code, 'hello worl');
+    expect(emitted.length).toBe(eventsBefore);
+
+    await jest.advanceTimersByTimeAsync(1_000);
+    await service.progress(rival, code, 'hello');
+    expect(emitted.some((event) => event.event === 'race:finished')).toBe(false);
+
+    await service.progress(rival, code, passage);
+    const finished = emitted.find((event) => event.event === 'race:finished')?.payload as {
+      racers: Array<{
+        guest_id: number;
+        rank: number;
+        finished: boolean;
+        completion_time_ms: number | null;
+      }>;
+    };
+    expect(finished.racers.map((racer) => [racer.guest_id, racer.rank, racer.finished])).toEqual([
+      [4, 1, true],
+      [8, 2, true],
+    ]);
+    expect(finished.racers[0].completion_time_ms).toBe(hostTime);
+    expect(finished.racers[1].completion_time_ms).toBe(3_000);
+  });
+
+  it('ranks a finisher ahead of a racer who runs out of time', async () => {
+    await startRace();
+    await jest.advanceTimersByTimeAsync(2_000);
+    await service.progress(host, code, passage);
+    await service.progress(rival, code, 'hello');
+    await jest.advanceTimersByTimeAsync(28_000);
+
+    const saved = mockResultRepository.save.mock.calls[0][0] as MatchResult[];
+    expect(saved.map((result) => [result.guest, result.rank_position, result.is_finished])).toEqual([
+      [{ id: '4' }, 1, true],
+      [{ id: '8' }, 2, false],
+    ]);
+    expect(saved[0].completion_time_ms).toBe(2_000);
+    expect(saved[1].completion_time_ms).toBeNull();
+    expect(saved[1].status).toBe(MatchResultStatus.UNFINISHED);
+  });
+
+  it('ends the race when every racer disconnects', async () => {
+    await startRace();
+    await jest.advanceTimersByTimeAsync(1_000);
+    service.markDisconnected('4');
+    service.markDisconnected('8');
+    await jest.advanceTimersByTimeAsync(0);
+
+    const saved = mockResultRepository.save.mock.calls[0][0] as MatchResult[];
+    expect(saved.every((result) => result.status === MatchResultStatus.DISCONNECTED)).toBe(true);
+    expect(saved.every((result) => result.is_finished === false)).toBe(true);
+    expect(emitted.some((event) => event.event === 'race:finished')).toBe(true);
+
+    const finishedEvents = emitted.filter((event) => event.event === 'race:finished');
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(emitted.filter((event) => event.event === 'race:finished')).toEqual(finishedEvents);
   });
 });

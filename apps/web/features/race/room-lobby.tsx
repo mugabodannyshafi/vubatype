@@ -54,7 +54,7 @@ export function RoomLobby({ canStart, onLeave, onReady, onStart, room, you }: Ro
           <Chip.Label>{difficultyLabel(room.settings.difficulty)}</Chip.Label>
         </Chip>
         <Chip size="sm" variant="soft">
-          <Chip.Label>{room.settings.duration_seconds}s</Chip.Label>
+          <Chip.Label>{room.settings.duration_seconds}s limit</Chip.Label>
         </Chip>
         <Chip size="sm" variant="soft">
           <Chip.Label>

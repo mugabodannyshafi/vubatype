@@ -18,6 +18,7 @@ import { Match } from 'src/database/entities/match.entity';
 import { RoomPlayer } from 'src/database/entities/room-player.entity';
 import { Room } from 'src/database/entities/room.entity';
 import { LanguageInfo, LanguageService } from 'src/modules/language/services/language.service';
+import { raceDurationSeconds } from 'src/modules/race/race.config';
 import { CreateRoomDto } from '../dto/create-room.dto';
 import { RoomMatchesQueryDto } from '../dto/room-matches-query.dto';
 
@@ -332,7 +333,7 @@ export class RoomService extends BaseService {
       code: this.generateCode(),
       host_guest: { id: guest.id } as GuestSession,
       language: { id: String(language.id) } as Language,
-      duration_seconds: dto.duration_seconds,
+      duration_seconds: raceDurationSeconds(dto.difficulty),
       difficulty: dto.difficulty,
       max_players: dto.max_players,
       status: RoomStatus.WAITING,

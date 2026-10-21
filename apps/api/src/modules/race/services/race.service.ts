@@ -21,14 +21,17 @@ import { Match } from 'src/database/entities/match.entity';
 import { Room } from 'src/database/entities/room.entity';
 import { RoomPlayer } from 'src/database/entities/room-player.entity';
 import { TypingPassage } from 'src/database/entities/typing-passage.entity';
-import { PassageGeneratorService } from 'src/modules/practice/services/passage-generator.service';
 import { TypingScoreService } from 'src/modules/practice/services/typing-score.service';
 import { RoomService } from 'src/modules/room/services/room.service';
+import {
+  acceptsTypedUpdate,
+  isExactCompletion,
+  scoreRaceProgress,
+} from '../race-progress';
 import { RaceEmitter, RaceStanding, RaceSync } from '../race.types';
+import { RaceTextService } from './race-text.service';
 
 export const COUNTDOWN_MS = 3_000;
-const TYPED_TEXT_OVERFLOW = 50;
-const RACE_PASSAGE_SOURCE = 'race';
 
 interface RacerState {
   guestId: string;
@@ -71,7 +74,7 @@ export class RaceService implements OnModuleDestroy {
 
   constructor(
     private readonly roomService: RoomService,
-    private readonly passageGenerator: PassageGeneratorService,
+    private readonly raceText: RaceTextService,
     private readonly typingScore: TypingScoreService,
     @InjectRepository(Match)
     private readonly matchRepository: Repository<Match>,
@@ -100,11 +103,10 @@ export class RaceService implements OnModuleDestroy {
       throw new ConflictException('Race cannot be started');
     }
 
-    const passage = await this.passageGenerator.generate({
+    const passage = await this.raceText.generate({
       languageId: String(room.language.id),
+      languageCode: room.language.code,
       difficulty: room.difficulty,
-      durationSeconds: room.duration_seconds,
-      source: RACE_PASSAGE_SOURCE,
     });
 
     const scheduledStart = Date.now() + COUNTDOWN_MS;
@@ -176,7 +178,7 @@ export class RaceService implements OnModuleDestroy {
       void this.beginRace(room.code).catch((error: unknown) => {
         this.logger.error(`Could not start race ${room.code}`, error);
       });
-    }, COUNTDOWN_MS);
+    }, Math.max(0, scheduledStart - Date.now()));
   }
 
   async progress(guest: GuestSession, code: string, typedText: string): Promise<void> {
@@ -194,35 +196,29 @@ export class RaceService implements OnModuleDestroy {
       return;
     }
 
-    const now = new Date();
-    if (typedText.length > runtime.passage.length + TYPED_TEXT_OVERFLOW) {
+    if (typedText.length > runtime.passage.length) {
       throw new BadRequestException('Progress update is too long');
     }
+    if (!acceptsTypedUpdate(racer.typedText, typedText)) {
+      throw new BadRequestException('Progress update does not continue the current text');
+    }
+    if (typedText === racer.typedText) {
+      return;
+    }
+
+    const now = new Date();
     const elapsed = now.getTime() - (runtime.startedAt ?? now.getTime());
     if (!this.typingScore.isPlausible(typedText.length, elapsed)) {
       throw new BadRequestException('Progress update is not plausible');
     }
 
-    const score = this.typingScore.score({
-      passage: runtime.passage,
-      typedText,
-      startedAt: new Date(runtime.startedAt ?? now.getTime()),
-      finishedAt: now,
-      durationSeconds: runtime.durationSeconds,
-    });
     racer.disconnected = false;
-    racer.typedText = typedText;
-    racer.progress = this.progressPercent(typedText.length, runtime.passage.length);
-    racer.grossWpm = score.gross_wpm;
-    racer.netWpm = score.net_wpm;
-    racer.accuracy = score.accuracy;
-    racer.correctChars = score.correct_chars;
-    racer.incorrectChars = score.incorrect_chars;
+    const score = this.applyScore(racer, runtime, typedText, now.getTime());
 
-    if (runtime.passage.length > 0 && typedText.length >= runtime.passage.length) {
+    if (isExactCompletion(runtime.passage, typedText)) {
       racer.finished = true;
       racer.progress = 100;
-      racer.completionTimeMs = score.elapsed_time_ms;
+      racer.completionTimeMs = score.elapsedMs;
       await this.participantRepository.update(racer.participantId, {
         status: MatchParticipantStatus.FINISHED,
         finished_at: now,
@@ -262,7 +258,7 @@ export class RaceService implements OnModuleDestroy {
     }
 
     racer.disconnected = true;
-    if (runtime.phase === 'running' && this.everyoneSettled(runtime)) {
+    if (this.everyoneSettled(runtime)) {
       void this.finish(runtime.code);
       return;
     }
@@ -308,13 +304,12 @@ export class RaceService implements OnModuleDestroy {
       return;
     }
 
-    const startedAt = new Date();
     runtime.phase = 'running';
-    runtime.startedAt = startedAt.getTime();
-    runtime.deadlineAt = startedAt.getTime() + runtime.durationSeconds * 1000;
+    runtime.startedAt = runtime.scheduledStart;
+    runtime.deadlineAt = runtime.scheduledStart + runtime.durationSeconds * 1000;
     await this.matchRepository.update(runtime.matchId, {
       status: MatchStatus.RUNNING,
-      starts_at: startedAt,
+      starts_at: new Date(runtime.startedAt),
       deadline_at: new Date(runtime.deadlineAt),
     });
     await this.roomService.applyStatus(runtime.roomId, RoomStatus.RACING);
@@ -327,7 +322,7 @@ export class RaceService implements OnModuleDestroy {
       void this.finish(runtime.code).catch((error: unknown) => {
         this.logger.error(`Could not finish race ${runtime.code}`, error);
       });
-    }, runtime.durationSeconds * 1000);
+    }, Math.max(0, runtime.deadlineAt - Date.now()));
   }
 
   private async finish(code: string): Promise<void> {
@@ -339,6 +334,7 @@ export class RaceService implements OnModuleDestroy {
     runtime.phase = 'finished';
     this.clearTimers(runtime);
     const finishedAt = new Date();
+    this.rescoreOpenRacers(runtime, finishedAt);
     const ranked = this.rank(runtime);
 
     try {
@@ -461,6 +457,40 @@ export class RaceService implements OnModuleDestroy {
     }));
   }
 
+  private applyScore(racer: RacerState, runtime: RaceRuntime, typedText: string, endedAt: number) {
+    const score = scoreRaceProgress(
+      runtime.passage,
+      typedText,
+      runtime.startedAt ?? endedAt,
+      endedAt,
+      runtime.durationSeconds,
+    );
+    racer.typedText = typedText;
+    racer.progress = score.progress;
+    racer.grossWpm = score.grossWpm;
+    racer.netWpm = score.netWpm;
+    racer.accuracy = score.accuracy;
+    racer.correctChars = score.correctChars;
+    racer.incorrectChars = score.incorrectChars;
+    return score;
+  }
+
+  private rescoreOpenRacers(runtime: RaceRuntime, finishedAt: Date): void {
+    if (runtime.startedAt == null) {
+      return;
+    }
+    const endedAt =
+      runtime.deadlineAt != null && finishedAt.getTime() >= runtime.deadlineAt
+        ? runtime.deadlineAt
+        : finishedAt.getTime();
+    for (const racer of runtime.racers.values()) {
+      if (racer.finished) {
+        continue;
+      }
+      this.applyScore(racer, runtime, racer.typedText, endedAt);
+    }
+  }
+
   private resultStatus(racer: RacerState): MatchResultStatus {
     if (racer.finished) {
       return MatchResultStatus.COMPLETED;
@@ -469,14 +499,6 @@ export class RaceService implements OnModuleDestroy {
       return MatchResultStatus.DISCONNECTED;
     }
     return MatchResultStatus.UNFINISHED;
-  }
-
-  private progressPercent(typedLength: number, passageLength: number): number {
-    if (passageLength === 0) {
-      return 0;
-    }
-    const value = (Math.min(typedLength, passageLength) / passageLength) * 100;
-    return Math.round(value * 100) / 100;
   }
 
   private remember(runtime: RaceRuntime): void {

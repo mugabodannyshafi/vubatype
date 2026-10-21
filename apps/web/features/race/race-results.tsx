@@ -1,5 +1,6 @@
 "use client";
 
+import { PlayerAvatar } from "@/components/player/player-avatar";
 import { AppButton } from "@/components/ui/app-button";
 import type { RaceRacer, RoomYou } from "@/lib/race/types";
 
@@ -19,7 +20,7 @@ function formatTime(ms: number | null): string {
     return `${seconds.toFixed(1)}s`;
   }
   const minutes = Math.floor(seconds / 60);
-  const rest = Math.round(seconds % 60);
+  const rest = Math.floor(seconds % 60);
   return `${minutes}:${rest.toString().padStart(2, "0")}`;
 }
 
@@ -40,6 +41,7 @@ export function RaceResults({ onLeave, onRematch, racers, you }: RaceResultsProp
           <Stat label="Your place" value={`#${mine.rank}`} />
           <Stat label="WPM" value={String(Math.round(mine.wpm))} />
           <Stat label="Accuracy" value={`${mine.accuracy.toFixed(1)}%`} />
+          <Stat label="Done" value={`${Math.round(mine.progress)}%`} />
           <Stat label="Time" value={formatTime(mine.completion_time_ms)} />
         </dl>
       ) : null}
@@ -47,18 +49,23 @@ export function RaceResults({ onLeave, onRematch, racers, you }: RaceResultsProp
         {ordered.map((racer) => (
           <li
             key={racer.guest_id}
-            className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem_4.5rem] items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2"
+            className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-3 py-3 sm:flex-row sm:items-center"
           >
-            <span className="font-mono text-sm text-muted tabular-nums">{racer.rank}</span>
-            <span className="truncate text-sm font-medium text-foreground">
-              {racer.nickname}
-              {racer.guest_id === you?.id ? " · you" : ""}
-            </span>
-            <span className="text-right font-mono text-sm text-foreground tabular-nums">{Math.round(racer.wpm)} wpm</span>
-            <span className="text-right font-mono text-sm text-muted tabular-nums">{racer.accuracy.toFixed(0)}%</span>
-            <span className="text-right font-mono text-sm text-muted tabular-nums">
-              {formatTime(racer.completion_time_ms)}
-            </span>
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <span className="w-6 font-mono text-sm text-muted tabular-nums">{racer.rank}</span>
+              <PlayerAvatar avatarUrl={racer.avatar_url ?? undefined} name={racer.nickname} />
+              <span className="truncate text-sm font-medium text-foreground">
+                {racer.nickname}
+                {racer.guest_id === you?.id ? " · you" : ""}
+              </span>
+            </div>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-5">
+              <ResultStat label="WPM" value={`${Math.round(racer.wpm)}`} />
+              <ResultStat label="Accuracy" value={`${racer.accuracy.toFixed(0)}%`} />
+              <ResultStat label="Done" value={`${Math.round(racer.progress)}%`} />
+              <ResultStat label="Time" value={formatTime(racer.completion_time_ms)} />
+              <ResultStat label="Status" value={racer.finished ? "Finished" : "DNF"} />
+            </dl>
           </li>
         ))}
       </ol>
@@ -80,6 +87,15 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="flex flex-col gap-1">
       <dt className="text-xs font-medium tracking-wide text-muted uppercase">{label}</dt>
       <dd className="font-mono text-3xl leading-none text-foreground tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function ResultStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs font-medium tracking-wide text-muted uppercase">{label}</dt>
+      <dd className="font-mono text-sm text-foreground tabular-nums">{value}</dd>
     </div>
   );
 }

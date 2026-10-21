@@ -11,10 +11,10 @@ import { AppButton } from "@/components/ui/app-button";
 import { AppTextField } from "@/components/ui/app-text-field";
 import { ApiError } from "@/lib/api/http";
 import { ensureGuestSession } from "@/lib/api/guests";
-import { createRoom, type RaceDifficulty, type RaceDuration } from "@/lib/api/rooms";
+import { createRoom, type RaceDifficulty } from "@/lib/api/rooms";
 import { LANGUAGES, type LanguageCode } from "@/lib/constants/languages";
+import { RACE_LIMITS } from "@/lib/race/progress";
 
-const DURATIONS = [15, 30, 60] as const satisfies readonly RaceDuration[];
 const DIFFICULTIES = [
   { value: "easy", label: "Easy" },
   { value: "medium", label: "Medium" },
@@ -24,10 +24,6 @@ const DIFFICULTIES = [
 function readSelection(keys: Iterable<unknown>): string | null {
   const key = [...keys][0];
   return typeof key === "string" ? key : null;
-}
-
-function isDuration(value: string): value is `${RaceDuration}` {
-  return DURATIONS.some((duration) => String(duration) === value);
 }
 
 function isDifficulty(value: string): value is RaceDifficulty {
@@ -42,7 +38,6 @@ export function RaceHubPage() {
   const router = useRouter();
   const { language, setLanguage } = useTypingLanguage();
   const [difficulty, setDifficulty] = useState<RaceDifficulty>("medium");
-  const [duration, setDuration] = useState<RaceDuration>(30);
   const [joinCode, setJoinCode] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +50,6 @@ export function RaceHubPage() {
       const room = await createRoom({
         language_code: language,
         difficulty,
-        duration_seconds: duration,
       });
       router.push(`/rooms/${room.code}`);
     } catch (caught) {
@@ -128,25 +122,10 @@ export function RaceHubPage() {
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
-            <ToggleButtonGroup
-              aria-label="Duration"
-              disallowEmptySelection
-              selectedKeys={[String(duration)]}
-              selectionMode="single"
-              size="sm"
-              onSelectionChange={(keys) => {
-                const key = readSelection(keys);
-                if (key && isDuration(key)) {
-                  setDuration(Number(key) as RaceDuration);
-                }
-              }}
-            >
-              {DURATIONS.map((option) => (
-                <ToggleButton key={option} id={String(option)}>
-                  {option}s
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
+            <p className="text-sm text-muted">
+              {RACE_LIMITS[difficulty].minWords}–{RACE_LIMITS[difficulty].maxWords} words ·{" "}
+              {RACE_LIMITS[difficulty].maxSeconds}s limit
+            </p>
           </Card.Content>
           <Card.Footer>
             <AppButton isDisabled={creating} onPress={() => void onCreate()}>

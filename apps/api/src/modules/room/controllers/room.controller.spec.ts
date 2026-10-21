@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { GuestAuthGuard } from 'src/common/guards/guest-auth.guard';
 import { WordDifficulty } from 'src/common/enums/WordDifficulty';
 import { GuestSession } from 'src/database/entities/guest-session.entity';
 import { CreateRoomDto } from '../dto/create-room.dto';
@@ -18,7 +19,6 @@ describe('RoomController', () => {
   const dto: CreateRoomDto = {
     language_code: 'rw',
     difficulty: WordDifficulty.EASY,
-    duration_seconds: 30,
     max_players: 8,
   };
   const room = { id: 101, code: 'AB7K2QMN', status: 'waiting' };
@@ -27,7 +27,10 @@ describe('RoomController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RoomController],
       providers: [{ provide: RoomService, useValue: mockRoomService }],
-    }).compile();
+    })
+      .overrideGuard(GuestAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get(RoomController);
   });
