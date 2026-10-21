@@ -1,0 +1,19 @@
+{
+  "name": "vubatype",
+  "private": true,
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "turbo run format"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  }
+}

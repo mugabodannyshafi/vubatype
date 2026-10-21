@@ -1,11 +1,13 @@
 # vubatype-be
 
+This package is `vubatype-be` in the vubatype pnpm workspace (`apps/api`). From the repository root, install with `pnpm install`. `pnpm --filter vubatype-be dev` listens on port 3001. `pnpm --filter vubatype-be start:dev` still listens on `PORT` or 3000.
+
 A NestJS application
 
 ## Installation
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## Running the app
@@ -13,38 +15,34 @@ npm install
 ### With Docker
 
 ```bash
-# Start with docker-compose
-docker-compose up
-
-# Start in detached mode
-docker-compose up -d
-
+# From the repository root
+docker compose -f apps/api/docker-compose.yml up
 ```
 
 ### Without Docker
 
 ```bash
-# development
-npm run start
+# development on port 3001
+pnpm --filter vubatype-be dev
 
-# watch mode
-npm run start:dev
+# watch mode on PORT or 3000
+pnpm --filter vubatype-be start:dev
 
 # production mode
-npm run start:prod
+pnpm --filter vubatype-be start:prod
 ```
 
 ## Test
 
 ```bash
 # unit tests
-npm run test
+pnpm --filter vubatype-be test
 
 # e2e tests
-npm run test:e2e
+pnpm --filter vubatype-be test:e2e
 
 # test coverage
-npm run test:cov
+pnpm --filter vubatype-be test:cov
 ```
 
 ## CI/CD

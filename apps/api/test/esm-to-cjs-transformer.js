@@ -1,7 +1,7 @@
 const ts = require('typescript');
 
 /**
- * Jest still runs this project as CommonJS. NestJS 12 ships ESM, so e2e tests
+ * Jest still runs this project as CommonJS. NestJS 12 ships ESM, so tests
  * downlevel those packages before loading them.
  */
 module.exports = {

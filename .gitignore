@@ -1,0 +1,25 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# turborepo
+.turbo
+
+# builds
+dist
+.next
+out
+build
+coverage
+*.tsbuildinfo
+
+# environment
+.env
+.env.*
+!.env.example
+!.env.testing.example
+
+# misc
+.DS_Store
+*.log
+.vercel

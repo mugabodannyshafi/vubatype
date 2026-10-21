@@ -9,6 +9,7 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
+    "dev": "PORT=3001 nest start --watch",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -50,8 +51,12 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
+      "node_modules[/\\\\].+\\.js$": "<rootDir>/../test/esm-to-cjs-transformer.js",
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(@nestjs/|\\.pnpm/@nestjs\\+))"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 12 ignores dependency build scripts unless they are approved here.
+allowBuilds:
+  bcrypt: true
+  unrs-resolver: true
+  "@scarf/scarf": false
+
+minimumReleaseAgeExclude:
+  - "@nestjs/cli@12.0.10"

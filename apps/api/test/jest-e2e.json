@@ -15,7 +15,7 @@
     "^.+\\.ts$": "ts-jest"
   },
   "transformIgnorePatterns": [
-    "node_modules/(?!@nestjs/)"
+    "node_modules/(?!(@nestjs/|\\.pnpm/@nestjs\\+))"
   ],
   "collectCoverageFrom": [
     "**/*.(t|j)s"

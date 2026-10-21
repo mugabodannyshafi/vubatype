@@ -8,5 +8,5 @@ RUN apt install -y curl git \
     && apt-get install -y postgresql-client \
     && apt-get -y autoremove \
     && apt-get -y clean
-RUN npm i -g @nestjs/cli
-CMD ["npm", "run", "start:dev"]
+RUN npm i -g pnpm@12.14.0
+CMD ["pnpm", "--filter", "vubatype-be", "start:dev"]

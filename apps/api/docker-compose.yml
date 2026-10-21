@@ -1,16 +1,19 @@
 services:
   app:
-    build: .
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
     restart: always
     ports:
       - '${APP_PORT}:3000'
     platform: linux/amd64
     volumes:
-      - '.:/home/app'
+      - '../..:/home/app'
+    working_dir: /home/app
     command:
       - bash
       - -c
-      - rm -rf node_modules dist && npm install && npm run start:dev
+      - rm -rf node_modules apps/api/node_modules apps/api/dist && pnpm install && pnpm --filter vubatype-be start:dev
     depends_on:
       db:
         condition: service_healthy

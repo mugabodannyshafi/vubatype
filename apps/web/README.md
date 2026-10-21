@@ -1,3 +1,5 @@
+This package is `vubatype-ui` in the vubatype pnpm workspace (`apps/web`). From the repository root, install with `pnpm install` and start this app with `pnpm --filter vubatype-ui dev`. That serves Next.js on port 3000 and rewrites `/api` to `http://127.0.0.1:3001`.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
