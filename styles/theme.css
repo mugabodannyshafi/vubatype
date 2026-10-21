@@ -1,0 +1,146 @@
+/*
+ * VubaType theme overrides.
+ * Kept unlayered so these tokens win over HeroUI's @layer base defaults.
+ * Hover, soft, and border levels inherit through HeroUI's color-mix() rules.
+ */
+
+:root {
+  --accent: #22c55e;
+  --accent-foreground: #052e16;
+  --success: #22c55e;
+  --success-foreground: #052e16;
+  --focus: #22c55e;
+}
+
+:root,
+.light,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #f4f6f8;
+  --foreground: #101318;
+
+  --surface: #ffffff;
+  --surface-foreground: #101318;
+  --surface-secondary: #eef1f4;
+  --surface-secondary-foreground: #101318;
+  --surface-tertiary: #e2e6eb;
+  --surface-tertiary-foreground: #101318;
+
+  --overlay: #ffffff;
+  --overlay-foreground: #101318;
+
+  --muted: #4b5563;
+
+  --default: #eef1f4;
+  --default-foreground: #101318;
+
+  --danger: #dc2626;
+  --danger-foreground: #ffffff;
+
+  --warning: #f59e0b;
+  --warning-foreground: #101318;
+
+  --field-background: #ffffff;
+  --field-foreground: #101318;
+  --field-placeholder: #4b5563;
+  --field-border: #e2e6eb;
+
+  --border: #e2e6eb;
+  --separator: #e2e6eb;
+  --segment: #ffffff;
+  --segment-foreground: #101318;
+
+  /* #22C55E fails contrast on the light background, so links use a darker green. */
+  --link: #15803d;
+
+  --typing-pending: var(--muted);
+  --typing-correct: var(--foreground);
+  --typing-incorrect: var(--danger);
+  --typing-caret: var(--accent);
+}
+
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #101318;
+  --foreground: #f4f5f7;
+
+  --surface: #1b2028;
+  --surface-foreground: #f4f5f7;
+  --surface-secondary: #242b36;
+  --surface-secondary-foreground: #f4f5f7;
+  --surface-tertiary: #2a3140;
+  --surface-tertiary-foreground: #f4f5f7;
+
+  --overlay: #242b36;
+  --overlay-foreground: #f4f5f7;
+
+  --muted: #9ca3af;
+
+  --default: #242b36;
+  --default-foreground: #f4f5f7;
+
+  --danger: #ef4444;
+  --danger-foreground: #101318;
+
+  --warning: #f59e0b;
+  --warning-foreground: #101318;
+
+  --field-background: #1b2028;
+  --field-foreground: #f4f5f7;
+  --field-placeholder: #9ca3af;
+  --field-border: #2a3140;
+
+  --border: #2a3140;
+  --separator: #2a3140;
+  --segment: #242b36;
+  --segment-foreground: #f4f5f7;
+  --link: #22c55e;
+
+  --typing-pending: var(--muted);
+  --typing-correct: var(--foreground);
+  --typing-incorrect: var(--danger);
+  --typing-caret: var(--accent);
+}
+
+.button.button--secondary {
+  color: var(--foreground);
+}
+
+.typing-text {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.625rem;
+  font-weight: 400;
+  line-height: 1.9;
+  letter-spacing: 0.02em;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.typing-char-incorrect {
+  background-color: color-mix(in oklab, var(--danger) 18%, transparent);
+  border-radius: 0.125rem;
+}
+
+.typing-char-current {
+  background-color: color-mix(in oklab, var(--accent) 18%, transparent);
+  border-radius: 0.125rem;
+}
+
+.typing-caret {
+  position: absolute;
+  top: 0.12em;
+  bottom: 0.08em;
+  left: 0;
+  width: 2px;
+  background-color: var(--typing-caret);
+}
+
+@media (min-width: 40rem) {
+  .typing-text {
+    font-size: 2rem;
+    letter-spacing: 0.015em;
+  }
+}
