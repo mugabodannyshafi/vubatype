@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, development]
+  pull_request:
+    branches: [main, develop, development]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  api:
+    name: api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm 12 and Node.js 22
+        uses: pnpm/setup@v3
+        with:
+          runtime: node@22
+          cache: true
+          require-lockfile: true
+
+      - name: Lint API
+        run: pnpm --filter vubatype-be lint
+
+      - name: Run API unit tests
+        run: pnpm --filter vubatype-be test
+
+      - name: Build API
+        run: pnpm --filter vubatype-be build
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm 12 and Node.js 22
+        uses: pnpm/setup@v3
+        with:
+          runtime: node@22
+          cache: true
+          require-lockfile: true
+
+      - name: Lint web
+        run: pnpm --filter vubatype-ui lint
+
+      - name: Build web
+        run: pnpm --filter vubatype-ui build
+
+  dependencies:
+    name: dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm 12 and Node.js 22
+        uses: pnpm/setup@v3
+        with:
+          runtime: node@22
+          cache: true
+          require-lockfile: true
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4

@@ -107,7 +107,9 @@ describe('RoomService', () => {
       expect(savedRoom.difficulty).toBe(WordDifficulty.EASY);
       expect(savedRoom.max_players).toBe(8);
       expect(savedRoom.code).toHaveLength(ROOM_CODE_LENGTH);
-      expect(savedRoom.code.split('').every((char) => ROOM_CODE_ALPHABET.includes(char))).toBe(true);
+      expect(savedRoom.code.split('').every((char) => ROOM_CODE_ALPHABET.includes(char))).toBe(
+        true,
+      );
       expect(savedRoom.expires_at.getTime() - savedRoom.created_at.getTime()).toBe(ROOM_TTL_MS);
       expect(savedRoom.host_guest).toEqual({ id: guest.id });
       expect(savedRoom.language).toEqual({ id: '1' });

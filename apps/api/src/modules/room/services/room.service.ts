@@ -313,7 +313,8 @@ export class RoomService extends BaseService {
       return null;
     }
 
-    const driverError = (error as { driverError?: UniqueViolation & { code?: string } }).driverError;
+    const driverError = (error as { driverError?: UniqueViolation & { code?: string } })
+      .driverError;
     if (!driverError || driverError.code !== POSTGRES_UNIQUE_VIOLATION) {
       return null;
     }

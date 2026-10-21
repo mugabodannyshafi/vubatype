@@ -38,19 +38,16 @@ pnpm --filter vubatype-be start:prod
 # unit tests
 pnpm --filter vubatype-be test
 
-# e2e tests
+# e2e tests; these boot the API and its database
 pnpm --filter vubatype-be test:e2e
 
 # test coverage
 pnpm --filter vubatype-be test:cov
 ```
 
-## CI/CD
+## CI
 
-This project includes GitHub Actions workflows for:
-- Automated testing on push and pull requests
-- Code quality checks (linting, formatting)
-- Test coverage reporting
+GitHub Actions runs API lint, unit tests, and a production build on pull requests and pushes. It does not run end-to-end tests, database seeders, or coverage upload. See the repository [README](../../README.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ---
 Generated with nestify 
