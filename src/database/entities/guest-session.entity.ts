@@ -6,8 +6,10 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { Avatar } from './avatar.entity';
 import { MatchParticipant } from './match-participant.entity';
 import { MatchResult } from './match-result.entity';
 import { Room } from './room.entity';
@@ -16,6 +18,7 @@ import { SoloTypingResult } from './solo-typing-result.entity';
 import { User } from './user.entity';
 
 @Entity('guest_sessions')
+@Index('IDX_guest_sessions_avatar_id', ['avatar'])
 export class GuestSession {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: string;
@@ -23,6 +26,13 @@ export class GuestSession {
   @ManyToOne(() => User, (user) => user.guest_sessions, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user?: User | null;
+
+  @ManyToOne(() => Avatar, (avatar) => avatar.guest_sessions, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'avatar_id' })
+  avatar?: Avatar | null;
 
   @Column({ type: 'varchar', length: 100 })
   nickname!: string;

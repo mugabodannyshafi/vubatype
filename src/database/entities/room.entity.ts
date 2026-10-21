@@ -6,7 +6,9 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Check,
 } from 'typeorm';
+import { RaceMode } from 'src/common/enums/RaceMode';
 import { RoomStatus } from 'src/common/enums/RoomStatus';
 import { WordDifficulty } from 'src/common/enums/WordDifficulty';
 import { GuestSession } from './guest-session.entity';
@@ -15,6 +17,8 @@ import { Match } from './match.entity';
 import { RoomPlayer } from './room-player.entity';
 
 @Entity('rooms')
+@Check('CK_rooms_race_mode', `"race_mode" IN ('finish_first', 'timed')`)
+@Check('CK_rooms_max_race_seconds', `"max_race_seconds" > 0`)
 export class Room {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: string;
@@ -36,6 +40,12 @@ export class Room {
 
   @Column({ type: 'smallint', default: 30 })
   duration_seconds!: number;
+
+  @Column({ type: 'varchar', length: 30, default: RaceMode.FINISH_FIRST })
+  race_mode!: RaceMode;
+
+  @Column({ type: 'smallint', default: 180 })
+  max_race_seconds!: number;
 
   @Column({
     type: 'enum',

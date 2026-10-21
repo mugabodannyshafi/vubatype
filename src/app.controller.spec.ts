@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getEntityManagerToken } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AvatarSeeder } from './database/seeders/avatars.seeder';
 import { LanguageSeeder } from './database/seeders/languages.seeder';
 
 describe('AppController', () => {
@@ -14,6 +15,7 @@ describe('AppController', () => {
       providers: [
         AppService,
         LanguageSeeder,
+        AvatarSeeder,
         {
           provide: getEntityManagerToken(),
           useValue: {},

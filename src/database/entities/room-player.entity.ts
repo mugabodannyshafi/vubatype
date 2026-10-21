@@ -5,11 +5,13 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { GuestSession } from './guest-session.entity';
 import { Room } from './room.entity';
 
 @Entity('room_players')
+@Unique(['room', 'guest'])
 export class RoomPlayer {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: string;

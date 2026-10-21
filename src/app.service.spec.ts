@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getEntityManagerToken } from '@nestjs/typeorm';
 import { AppService } from './app.service';
+import { AvatarSeeder } from './database/seeders/avatars.seeder';
 import { LanguageSeeder } from './database/seeders/languages.seeder';
 
 describe('AppService', () => {
@@ -11,6 +12,7 @@ describe('AppService', () => {
       providers: [
         AppService,
         LanguageSeeder,
+        AvatarSeeder,
         {
           provide: getEntityManagerToken(),
           useValue: {},

@@ -5,12 +5,16 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Check,
+  Unique,
 } from 'typeorm';
 import { MatchResultStatus } from 'src/common/enums/MatchResultStatus';
 import { GuestSession } from './guest-session.entity';
 import { Match } from './match.entity';
 
 @Entity('match_results')
+@Unique(['match', 'guest'])
+@Check('CK_match_results_final_progress', `"final_progress" >= 0 AND "final_progress" <= 100`)
 export class MatchResult {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: string;
@@ -45,6 +49,12 @@ export class MatchResult {
 
   @Column({ type: 'smallint', nullable: true })
   rank_position?: number | null;
+
+  @Column({ type: 'boolean', default: false })
+  is_finished!: boolean;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  final_progress!: string;
 
   @Column({
     type: 'enum',

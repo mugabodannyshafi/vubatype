@@ -7,6 +7,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { GuestModule } from './modules/guest/guest.module';
 import { LanguageModule } from './modules/language/language.module';
 import { PracticeModule } from './modules/practice/practice.module';
+import { RoomModule } from './modules/room/room.module';
+import { AvatarSeeder } from './database/seeders/avatars.seeder';
 import { LanguageSeeder } from './database/seeders/languages.seeder';
 
 @Module({
@@ -21,8 +23,9 @@ import { LanguageSeeder } from './database/seeders/languages.seeder';
     GuestModule,
     LanguageModule,
     PracticeModule,
+    RoomModule,
   ],
   controllers: [AppController],
-  providers: [AppService, LanguageSeeder],
+  providers: [AppService, LanguageSeeder, AvatarSeeder],
 })
 export class AppModule {}
