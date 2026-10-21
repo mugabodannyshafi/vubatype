@@ -21,4 +21,4 @@
 
 ## Screenshots
 
-<!-- For a user-interface change, add before and after screenshots. Remove this section otherwise. -->
+<!-- For a user-interface change, add before and after screenshots. Remove this section otherwise -->
