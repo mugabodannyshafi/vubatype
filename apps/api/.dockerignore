@@ -1,0 +1,16 @@
+node_modules
+  .pnpm-store
+  npm-debug.log
+  dist
+  .git
+  .gitignore
+  README.md
+  .env
+  .env.testing
+  .env.production
+  coverage
+  .nyc_output
+  .github
+  .vscode
+  .idea
+  *.log
