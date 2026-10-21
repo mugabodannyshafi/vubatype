@@ -1,12 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getEntityManagerToken } from '@nestjs/typeorm';
 import { AppService } from './app.service';
+import { LanguageSeeder } from './database/seeders/languages.seeder';
 
 describe('AppService', () => {
   let service: AppService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AppService],
+      providers: [
+        AppService,
+        LanguageSeeder,
+        {
+          provide: getEntityManagerToken(),
+          useValue: {},
+        },
+      ],
     }).compile();
 
     service = module.get<AppService>(AppService);

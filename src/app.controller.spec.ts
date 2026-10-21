@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getEntityManagerToken } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { LanguageSeeder } from './database/seeders/languages.seeder';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -9,7 +11,14 @@ describe('AppController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        AppService,
+        LanguageSeeder,
+        {
+          provide: getEntityManagerToken(),
+          useValue: {},
+        },
+      ],
     }).compile();
 
     appController = module.get<AppController>(AppController);

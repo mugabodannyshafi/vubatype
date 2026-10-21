@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Language } from '../../../database/entities/language.entity';
 
 export interface LanguageInfo {
-  id: string;
+  id: number;
   code: string;
   name: string;
 }
@@ -39,7 +39,7 @@ export class LanguageService {
 
   private toInfo(language: Language): LanguageInfo {
     return {
-      id: language.id,
+      id: Number(language.id),
       code: language.code,
       name: language.name,
     };

@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GuestModule } from './modules/guest/guest.module';
 import { LanguageModule } from './modules/language/language.module';
+import { LanguageSeeder } from './database/seeders/languages.seeder';
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { LanguageModule } from './modules/language/language.module';
     LanguageModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, LanguageSeeder],
 })
 export class AppModule {}
