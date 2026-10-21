@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
+import { DateTime } from 'luxon';
 
 @Controller()
 export class AppController {
@@ -14,7 +15,7 @@ export class AppController {
   getHealth(): object {
     return {
       status: 'ok',
-      timestamp: new Date().toISOString(),
+      timestamp: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
     };
   }
 }

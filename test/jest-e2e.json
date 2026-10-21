@@ -6,10 +6,17 @@
   ],
   "rootDir": ".",
   "testEnvironment": "node",
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/../src/$1"
+  },
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "node_modules[/\\\\].+\\.js$": "<rootDir>/esm-to-cjs-transformer.js",
+    "^.+\\.ts$": "ts-jest"
   },
+  "transformIgnorePatterns": [
+    "node_modules/(?!@nestjs/)"
+  ],
   "collectCoverageFrom": [
     "**/*.(t|j)s"
   ],
