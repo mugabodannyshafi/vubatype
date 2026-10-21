@@ -1,13 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserController } from './user.controller';
+import { UserProgressService } from '../services/user-progress.service';
+import { AvatarStorageService } from '../services/avatar-storage.service';
 import { UserService } from '../services/user.service';
+import { LanguageService } from '../../language/services/language.service';
+import { UserStatus } from '../../../common/enums/UserStatus';
 
 describe('UserController', () => {
   let controller: UserController;
   let userService: UserService;
+  let progressService: UserProgressService;
 
   const mockUserService = {
-    findById: jest.fn(),
+    getProfile: jest.fn(),
+    updateProfile: jest.fn(),
+    changePassword: jest.fn(),
+    updatePreferredLanguage: jest.fn(),
+  };
+
+  const mockProgressService = {
+    getProgress: jest.fn(),
+  };
+
+  const mockLanguageService = {
+    findAvailableByCode: jest.fn(),
   };
 
   const mockUser = {
@@ -16,23 +32,39 @@ describe('UserController', () => {
     username: 'testuser',
     display_name: 'Test User',
     password_hash: '$2b$10$jEEstRcnSFaYO/JOao.zfeUzB7spE9p/YN5FWnw2aL24UT0jCL4ze',
-    createdAt: new Date('2025-10-09T15:18:29.155Z'),
-    updatedAt: new Date('2025-10-09T15:18:29.155Z'),
+    avatar_url: null,
+    preferred_language: null,
+    created_at: 1760000000,
+    updated_at: 1760000000,
+    status: UserStatus.ACTIVE,
+  };
+
+  const publicUser = {
+    id: mockUser.id,
+    email: mockUser.email,
+    username: mockUser.username,
+    display_name: mockUser.display_name,
+    avatar_url: null,
+    preferred_language: null,
+    created_at: mockUser.created_at,
+    updated_at: mockUser.updated_at,
+    status: mockUser.status,
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
       providers: [
-        {
-          provide: UserService,
-          useValue: mockUserService,
-        },
+        { provide: UserService, useValue: mockUserService },
+        { provide: UserProgressService, useValue: mockProgressService },
+        { provide: LanguageService, useValue: mockLanguageService },
+        { provide: AvatarStorageService, useValue: { upload: jest.fn(), remove: jest.fn() } },
       ],
     }).compile();
 
     controller = module.get<UserController>(UserController);
     userService = module.get<UserService>(UserService);
+    progressService = module.get<UserProgressService>(UserProgressService);
   });
 
   afterEach(() => {
@@ -44,140 +76,117 @@ describe('UserController', () => {
   });
 
   describe('getCurrentUser', () => {
-    it('should return current user profile', async () => {
-      const mockRequest = {
-        user: {
-          id: 'b1bf6d86-afee-43d1-8a3f-d13fe3147824',
-          email: 'test@example.com',
-        },
-      };
-
-      mockUserService.findById.mockResolvedValue(mockUser);
+    it('should return the current user without the password hash', async () => {
+      const mockRequest = { user: { id: mockUser.id, email: mockUser.email } };
+      mockUserService.getProfile.mockResolvedValue(mockUser);
 
       const result = await controller.getCurrentUser(mockRequest);
 
-      expect(userService.findById).toHaveBeenCalledWith('b1bf6d86-afee-43d1-8a3f-d13fe3147824');
-      expect(userService.findById).toHaveBeenCalledTimes(1);
-      expect(result).toEqual({
-        id: mockUser.id,
-        email: mockUser.email,
-        username: mockUser.username,
-        display_name: mockUser.display_name,
-        createdAt: mockUser.createdAt,
-        updatedAt: mockUser.updatedAt,
-      });
+      expect(userService.getProfile).toHaveBeenCalledWith(mockUser.id);
+      expect(result).toEqual(publicUser);
       expect(result).not.toHaveProperty('password_hash');
-      expect(result).not.toHaveProperty('password');
     });
 
-    it('should return user with complete profile data', async () => {
-      const mockRequest = {
-        user: {
-          id: 'c2cf7e97-bfff-54e2-9b4g-e24gf4258935',
-          email: 'another@example.com',
-        },
-      };
-
-      const completeUser = {
-        id: 'c2cf7e97-bfff-54e2-9b4g-e24gf4258935',
-        email: 'another@example.com',
-        username: 'another',
-        display_name: 'Another User',
-        password_hash: '$2b$10$anotherHashedPassword123456789',
-        createdAt: new Date('2025-10-08T10:30:00.000Z'),
-        updatedAt: new Date('2025-10-09T14:45:00.000Z'),
-      };
-
-      mockUserService.findById.mockResolvedValue(completeUser);
-
-      const result = await controller.getCurrentUser(mockRequest);
-
-      expect(userService.findById).toHaveBeenCalledWith('c2cf7e97-bfff-54e2-9b4g-e24gf4258935');
-      expect(result).toEqual({
-        id: completeUser.id,
-        email: completeUser.email,
-        username: completeUser.username,
-        display_name: completeUser.display_name,
-        createdAt: completeUser.createdAt,
-        updatedAt: completeUser.updatedAt,
+    it('should include the preferred language', async () => {
+      const mockRequest = { user: { id: mockUser.id } };
+      mockUserService.getProfile.mockResolvedValue({
+        ...mockUser,
+        preferred_language: { id: '2', code: 'en', name: 'English' },
       });
-      expect(result.id).toBe('c2cf7e97-bfff-54e2-9b4g-e24gf4258935');
-      expect(result.email).toBe('another@example.com');
-    });
-
-    it('should handle user not found', async () => {
-      const mockRequest = {
-        user: {
-          id: 'nonexistent-id',
-          email: 'test@example.com',
-        },
-      };
-
-      mockUserService.findById.mockResolvedValue(null);
 
       const result = await controller.getCurrentUser(mockRequest);
 
-      expect(userService.findById).toHaveBeenCalledWith('nonexistent-id');
+      expect(result.preferred_language).toEqual({ id: 2, code: 'en', name: 'English' });
+    });
+
+    it('should return null when the user is not found', async () => {
+      mockUserService.getProfile.mockResolvedValue(null);
+
+      const result = await controller.getCurrentUser({ user: { id: 'missing' } });
+
       expect(result).toBeNull();
     });
+  });
 
-    it('should throw error when service fails', async () => {
-      const mockRequest = {
-        user: {
-          id: 'b1bf6d86-afee-43d1-8a3f-d13fe3147824',
-          email: 'test@example.com',
-        },
-      };
+  describe('updateCurrentUser', () => {
+    it('updates only the authenticated user', async () => {
+      mockUserService.updateProfile.mockResolvedValue({
+        ...mockUser,
+        username: 'renamed',
+        display_name: 'Renamed',
+      });
 
-      mockUserService.findById.mockRejectedValue(new Error('Database connection error'));
-
-      await expect(controller.getCurrentUser(mockRequest)).rejects.toThrow(
-        'Database connection error',
+      const result = await controller.updateCurrentUser(
+        { username: 'renamed', display_name: 'Renamed' },
+        { user: { id: mockUser.id } },
       );
-      expect(userService.findById).toHaveBeenCalledWith('b1bf6d86-afee-43d1-8a3f-d13fe3147824');
-    });
 
-    it('should handle different user IDs correctly', async () => {
-      const mockRequest1 = { user: { id: 'user-123' } };
-      const mockRequest2 = { user: { id: 'user-456' } };
-
-      const user1 = { id: 'user-123', email: 'user1@example.com' };
-      const user2 = { id: 'user-456', email: 'user2@example.com' };
-
-      mockUserService.findById.mockResolvedValueOnce(user1).mockResolvedValueOnce(user2);
-
-      const result1 = await controller.getCurrentUser(mockRequest1);
-      const result2 = await controller.getCurrentUser(mockRequest2);
-
-      expect(userService.findById).toHaveBeenCalledWith('user-123');
-      expect(userService.findById).toHaveBeenCalledWith('user-456');
-      expect(result1).toEqual(user1);
-      expect(result2).toEqual(user2);
-    });
-
-    it('should not expose password field in user profile', async () => {
-      const mockRequest = {
-        user: {
-          id: '1',
-          email: 'test@example.com',
-        },
-      };
-
-      const userWithoutPassword = {
-        id: '1',
-        email: 'test@example.com',
-        username: 'testuser',
-        display_name: 'Test User',
-        password_hash: '$2b$10$hash',
-        createdAt: new Date(),
-      };
-
-      mockUserService.findById.mockResolvedValue(userWithoutPassword);
-
-      const result = await controller.getCurrentUser(mockRequest);
-
-      expect(result).not.toHaveProperty('password');
+      expect(userService.updateProfile).toHaveBeenCalledWith(mockUser.id, {
+        username: 'renamed',
+        display_name: 'Renamed',
+      });
+      expect(result.username).toBe('renamed');
       expect(result).not.toHaveProperty('password_hash');
+    });
+  });
+
+  describe('changePassword', () => {
+    it('changes the password for the authenticated user', async () => {
+      mockUserService.changePassword.mockResolvedValue(undefined);
+
+      await controller.changePassword(
+        { current_password: 'Password123!', new_password: 'NewPassword123!' },
+        { user: { id: mockUser.id } },
+      );
+
+      expect(userService.changePassword).toHaveBeenCalledWith(
+        mockUser.id,
+        'Password123!',
+        'NewPassword123!',
+      );
+    });
+  });
+
+  describe('updatePreferences', () => {
+    it('saves an active language for the authenticated user', async () => {
+      mockLanguageService.findAvailableByCode.mockResolvedValue({
+        id: 2,
+        code: 'en',
+        name: 'English',
+      });
+      mockUserService.updatePreferredLanguage.mockResolvedValue({
+        ...mockUser,
+        preferred_language: { id: '2', code: 'en', name: 'English' },
+      });
+
+      const result = await controller.updatePreferences(
+        { language_code: 'en' },
+        { user: { id: mockUser.id } },
+      );
+
+      expect(mockLanguageService.findAvailableByCode).toHaveBeenCalledWith('en');
+      expect(userService.updatePreferredLanguage).toHaveBeenCalledWith(mockUser.id, '2');
+      expect(result.preferred_language).toEqual({ id: 2, code: 'en', name: 'English' });
+    });
+  });
+
+  describe('getProgress', () => {
+    it('loads progress for the authenticated user only', async () => {
+      const progress = {
+        personal_best_wpm: 80,
+        average_wpm: 70,
+        average_accuracy: 96,
+        total_sessions: 2,
+        total_races: 0,
+        recent: [],
+        history: [],
+      };
+      mockProgressService.getProgress.mockResolvedValue(progress);
+
+      const result = await controller.getProgress({ user: { id: mockUser.id } });
+
+      expect(progressService.getProgress).toHaveBeenCalledWith(mockUser.id);
+      expect(result).toEqual(progress);
     });
   });
 });

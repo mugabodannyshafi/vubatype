@@ -17,7 +17,7 @@ export function GameActions() {
         </Card.Header>
         <Card.Content className="flex-1" />
         <Card.Footer>
-          <p className="text-sm text-muted">Private rooms are next.</p>
+          <AppButton onPress={() => router.push("/race")}>Create a room</AppButton>
         </Card.Footer>
       </Card>
       <Card className="h-full">

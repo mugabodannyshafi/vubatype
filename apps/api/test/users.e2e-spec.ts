@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+// supertest publishes a CommonJS export, and this project does not enable esModuleInterop.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 
@@ -39,9 +41,8 @@ describe('Users (e2e)', () => {
   });
 
   afterEach(async () => {
-    // Clean up users table after each test
-    const repository = dataSource.getRepository('User');
-    await repository.clear();
+    await dataSource.query('DELETE FROM guest_sessions');
+    await dataSource.query('DELETE FROM users');
   });
 
   describe('/users/me (GET)', () => {
@@ -68,8 +69,9 @@ describe('Users (e2e)', () => {
           expect(res.body).toHaveProperty('email', 'testuser@example.com');
           expect(res.body).toHaveProperty('username', 'testuser');
           expect(res.body).toHaveProperty('display_name', 'Test User');
-          expect(res.body).toHaveProperty('createdAt');
-          expect(res.body).toHaveProperty('updatedAt');
+          expect(res.body).toHaveProperty('created_at');
+          expect(typeof res.body.created_at).toBe('number');
+          expect(res.body.preferred_language).toBeNull();
           expect(res.body).not.toHaveProperty('password');
           expect(res.body).not.toHaveProperty('password_hash');
         });
@@ -86,8 +88,8 @@ describe('Users (e2e)', () => {
           );
           expect(typeof res.body.email).toBe('string');
           expect(res.body.email).toContain('@');
-          expect(new Date(res.body.createdAt)).toBeInstanceOf(Date);
-          expect(new Date(res.body.updatedAt)).toBeInstanceOf(Date);
+          expect(typeof res.body.created_at).toBe('number');
+          expect(res.body.preferred_language).toBeNull();
         });
     });
 

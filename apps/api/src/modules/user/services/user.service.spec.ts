@@ -1,8 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { UserService } from './user.service';
 import { User } from '../../../database/entities/user.entity';
+
+jest.mock('bcrypt');
 
 describe('UserService', () => {
   let service: UserService;
@@ -271,6 +275,76 @@ describe('UserService', () => {
       expect(result).toHaveProperty('display_name');
       expect(result).toHaveProperty('createdAt');
       expect(result).toHaveProperty('updatedAt');
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('rejects a username that belongs to someone else', async () => {
+      mockUserRepository.findOne
+        .mockResolvedValueOnce({ ...mockUser })
+        .mockResolvedValueOnce({ ...mockUser, id: 'other-user' });
+
+      await expect(service.updateProfile(mockUser.id, { username: 'taken' })).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repository.save).not.toHaveBeenCalled();
+    });
+
+    it('updates the display name for the same user', async () => {
+      const updated = { ...mockUser, display_name: 'Renamed' };
+      mockUserRepository.findOne.mockResolvedValue(updated);
+      mockUserRepository.save.mockResolvedValue(updated);
+
+      const result = await service.updateProfile(mockUser.id, { display_name: 'Renamed' });
+
+      expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({ display_name: 'Renamed' }));
+      expect(result?.display_name).toBe('Renamed');
+    });
+  });
+
+  describe('changePassword', () => {
+    it('rejects an incorrect current password', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(service.changePassword(mockUser.id, 'wrong', 'NewPassword123!')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+    });
+
+    it('stores a new hash when the current password matches', async () => {
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
+
+      await service.changePassword(mockUser.id, 'Password123!', 'NewPassword123!');
+
+      expect(bcrypt.hash).toHaveBeenCalledWith('NewPassword123!', 10);
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ password_hash: 'new-hash' }),
+      );
+    });
+  });
+
+  describe('updatePreferredLanguage', () => {
+    it('stores the language for that user and reloads the profile', async () => {
+      const saved = {
+        ...mockUser,
+        preferred_language: { id: '2', code: 'en', name: 'English' },
+      };
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser });
+      mockUserRepository.save.mockResolvedValue(saved);
+      mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser }).mockResolvedValueOnce(saved);
+
+      const result = await service.updatePreferredLanguage(mockUser.id, '2');
+
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preferred_language: { id: '2' },
+        }),
+      );
+      expect(result?.preferred_language).toEqual(saved.preferred_language);
     });
   });
 });

@@ -10,6 +10,7 @@ jest.mock('@nestjs/config', () => ({
 
 jest.mock('@nestjs/typeorm', () => ({
   InjectRepository: () => () => undefined,
+  InjectEntityManager: () => () => undefined,
 }));
 
 import { createHash } from 'crypto';
@@ -19,13 +20,21 @@ import { GuestService } from './guest.service';
 describe('GuestService', () => {
   let service: GuestService;
 
+  const relationBuilder = {
+    of: jest.fn().mockReturnThis(),
+    set: jest.fn().mockResolvedValue(undefined),
+  };
+
   const mockGuestRepository = {
     findOne: jest.fn(),
-    create: jest.fn((entity) => entity),
+    create: jest.fn((entityOrData, maybeData) => maybeData ?? entityOrData),
     save: jest.fn(async (entity) => ({
       ...entity,
       id: entity.id ?? '1',
       created_at: entity.created_at ?? new Date('2026-01-01T00:00:00.000Z'),
+    })),
+    createQueryBuilder: jest.fn(() => ({
+      relation: jest.fn(() => relationBuilder),
     })),
   };
 
@@ -82,15 +91,17 @@ describe('GuestService', () => {
       const result = await service.createOrRestore('New Name', 'raw-token');
 
       expect(mockGuestRepository.create).not.toHaveBeenCalled();
-      expect(mockGuestRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          session_token_hash: createHash('sha256').update('raw-token').digest('hex'),
-          expires_at: expect.anything(),
-        },
-      });
+      expect(mockGuestRepository.findOne).toHaveBeenCalledWith(
+        GuestSession,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            session_token_hash: createHash('sha256').update('raw-token').digest('hex'),
+          }),
+        }),
+      );
       expect(result.created).toBe(false);
       expect(result.token).toBeUndefined();
-      expect(result.guest.id).toBe(existingSession.id);
+      expect(result.guest.id).toBe(Number(existingSession.id));
       expect(result.guest.nickname).toBe('New Name');
     });
 
@@ -143,6 +154,39 @@ describe('GuestService', () => {
       );
       expect(result.nickname).toBe('Quick Lynx');
       expect(result).not.toHaveProperty('session_token_hash');
+    });
+  });
+
+  describe('linkToUser', () => {
+    it('links an unclaimed guest without copying results', async () => {
+      mockGuestRepository.findOne.mockResolvedValue({ id: '9', user: null });
+
+      await service.linkToUser('9', 'user-1');
+
+      expect(mockGuestRepository.findOne).toHaveBeenCalledWith(GuestSession, {
+        where: { id: '9' },
+        relations: { user: true },
+      });
+      expect(relationBuilder.of).toHaveBeenCalledWith('9');
+      expect(relationBuilder.set).toHaveBeenCalledWith('user-1');
+      expect(mockGuestRepository.save).not.toHaveBeenCalled();
+      expect(mockGuestRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the guest is already linked to that user', async () => {
+      mockGuestRepository.findOne.mockResolvedValue({ id: '9', user: { id: 'user-1' } });
+
+      await service.linkToUser('9', 'user-1');
+
+      expect(mockGuestRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('does not move a guest that belongs to someone else', async () => {
+      mockGuestRepository.findOne.mockResolvedValue({ id: '9', user: { id: 'user-2' } });
+
+      await service.linkToUser('9', 'user-1');
+
+      expect(mockGuestRepository.save).not.toHaveBeenCalled();
     });
   });
 

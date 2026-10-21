@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../services/auth.service';
+import { GuestService } from '../../guest/services/guest.service';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 
@@ -12,6 +14,28 @@ describe('AuthController', () => {
     register: jest.fn(),
     login: jest.fn(),
   };
+
+  const mockGuestService = {
+    findValidByToken: jest.fn(),
+    linkToUser: jest.fn(),
+  };
+
+  const mockConfigService = {
+    get: jest.fn((key: string, defaultValue?: string) => {
+      if (key === 'JWT_EXPIRES_IN') {
+        return '1d';
+      }
+      if (key === 'NODE_ENV') {
+        return 'test';
+      }
+      return defaultValue;
+    }),
+  };
+
+  const response = () => ({
+    cookie: jest.fn(),
+    clearCookie: jest.fn(),
+  });
 
   const mockUser = {
     id: '1',
@@ -36,6 +60,14 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: GuestService,
+          useValue: mockGuestService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();
@@ -62,13 +94,29 @@ describe('AuthController', () => {
       };
 
       mockAuthService.register.mockResolvedValue({
-        id: '2',
-        email: registerDto.email,
-        username: registerDto.username,
-        display_name: registerDto.display_name,
+        access_token: 'jwt.token.here',
+        user: {
+          id: '2',
+          email: registerDto.email,
+          username: registerDto.username,
+          display_name: registerDto.display_name,
+        },
       });
+      const res = response();
 
-      const result = await controller.register(registerDto);
+      const result = await controller.register(registerDto, { cookies: {} }, res as any);
+
+      expect(res.cookie).toHaveBeenCalledWith(
+        'auth_session',
+        'jwt.token.here',
+        expect.objectContaining({
+          httpOnly: true,
+          path: '/',
+          sameSite: 'lax',
+          secure: false,
+          maxAge: 24 * 60 * 60 * 1000,
+        }),
+      );
 
       expect(authService.register).toHaveBeenCalledWith(
         registerDto.email,
@@ -78,11 +126,37 @@ describe('AuthController', () => {
       );
       expect(authService.register).toHaveBeenCalledTimes(1);
       expect(result).toEqual({
-        id: '2',
-        email: registerDto.email,
-        username: registerDto.username,
-        display_name: registerDto.display_name,
+        access_token: 'jwt.token.here',
+        user: {
+          id: '2',
+          email: registerDto.email,
+          username: registerDto.username,
+          display_name: registerDto.display_name,
+        },
       });
+    });
+
+    it('links the current guest session to the new user', async () => {
+      const registerDto: RegisterDto = {
+        email: 'newuser@example.com',
+        password: 'password123',
+        username: 'newuser',
+        display_name: 'New User',
+      };
+      mockAuthService.register.mockResolvedValue({
+        access_token: 'jwt.token.here',
+        user: { id: '2', email: registerDto.email, username: 'newuser', display_name: 'New User' },
+      });
+      mockGuestService.findValidByToken.mockResolvedValue({ id: '9' });
+
+      await controller.register(
+        registerDto,
+        { cookies: { guest_session: 'guest-token' } },
+        response() as any,
+      );
+
+      expect(mockGuestService.findValidByToken).toHaveBeenCalledWith('guest-token');
+      expect(mockGuestService.linkToUser).toHaveBeenCalledWith('9', '2');
     });
 
     it('should handle registration errors', async () => {
@@ -95,7 +169,9 @@ describe('AuthController', () => {
 
       mockAuthService.register.mockRejectedValue(new Error('User already exists'));
 
-      await expect(controller.register(registerDto)).rejects.toThrow('User already exists');
+      await expect(controller.register(registerDto, { cookies: {} }, response() as any)).rejects.toThrow(
+        'User already exists',
+      );
       expect(authService.register).toHaveBeenCalledWith(
         registerDto.email,
         registerDto.password,
@@ -118,7 +194,15 @@ describe('AuthController', () => {
 
       mockAuthService.login.mockResolvedValue(mockAccessToken);
 
-      const result = await controller.login(loginDto, mockRequest);
+      const res = response();
+
+      const result = await controller.login(loginDto, mockRequest, res as any);
+
+      expect(res.cookie).toHaveBeenCalledWith(
+        'auth_session',
+        mockAccessToken.access_token,
+        expect.objectContaining({ httpOnly: true }),
+      );
 
       expect(authService.login).toHaveBeenCalledWith(mockUser);
       expect(authService.login).toHaveBeenCalledTimes(1);
@@ -137,7 +221,26 @@ describe('AuthController', () => {
 
       mockAuthService.login.mockRejectedValue(new Error('Invalid credentials'));
 
-      await expect(controller.login(loginDto, mockRequest)).rejects.toThrow('Invalid credentials');
+      await expect(controller.login(loginDto, mockRequest, response() as any)).rejects.toThrow(
+        'Invalid credentials',
+      );
+    });
+  });
+
+  describe('logout', () => {
+    it('clears the auth session cookie', () => {
+      const res = response();
+
+      controller.logout(res as any);
+
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        'auth_session',
+        expect.objectContaining({
+          httpOnly: true,
+          path: '/',
+          sameSite: 'lax',
+        }),
+      );
     });
   });
 

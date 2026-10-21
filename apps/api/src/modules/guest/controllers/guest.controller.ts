@@ -15,6 +15,8 @@ import { ConfigService } from '@nestjs/config';
 import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CookieOptions, Response } from 'express';
 import { GUEST_COOKIE_NAME, GuestAuthGuard } from '../../../common/guards/guest-auth.guard';
+import { AUTH_COOKIE_NAME } from '../../auth/auth-cookie';
+import { AuthService } from '../../auth/services/auth.service';
 import { CreateGuestDto } from '../dto/create-guest.dto';
 import { UpdateGuestDto } from '../dto/update-guest.dto';
 import { GuestService } from '../services/guest.service';
@@ -26,6 +28,7 @@ export class GuestController extends BaseController {
   constructor(
     private readonly guestService: GuestService,
     private readonly configService: ConfigService,
+    private readonly authService: AuthService,
   ) {
     super();
   }
@@ -50,10 +53,11 @@ export class GuestController extends BaseController {
         this.cookieOptions(new Date(result.guest.expires_at)),
       );
       res.status(HttpStatus.CREATED);
-      return result.guest;
+    } else {
+      res.status(HttpStatus.OK);
     }
 
-    res.status(HttpStatus.OK);
+    await this.linkGuestFromAuthCookie(req, result.sessionId);
     return result.guest;
   }
 
@@ -88,6 +92,30 @@ export class GuestController extends BaseController {
   async endCurrentGuest(@Request() req, @Res({ passthrough: true }) res: Response) {
     await this.guestService.endSession(req.guest);
     res.clearCookie(GUEST_COOKIE_NAME, this.cookieBaseOptions());
+  }
+
+  private async linkGuestFromAuthCookie(
+    req: { cookies?: Record<string, unknown> },
+    sessionId?: string,
+  ) {
+    if (!sessionId) {
+      return;
+    }
+
+    const token = req.cookies?.[AUTH_COOKIE_NAME];
+    if (typeof token !== 'string' || token.length === 0) {
+      return;
+    }
+
+    try {
+      const payload = await this.authService.validateToken(token);
+      const userId = payload?.sub;
+      if (typeof userId === 'string' && userId.length > 0) {
+        await this.guestService.linkToUser(sessionId, userId);
+      }
+    } catch {
+      // An expired auth cookie must not block guest practice.
+    }
   }
 
   private cookieOptions(expiresAt: Date): CookieOptions {

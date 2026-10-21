@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength, Matches } from 'class-validator';
+import { PASSWORD_PATTERN, PASSWORD_PATTERN_MESSAGE } from '../../../common/validation/password';
 
 export class RegisterDto {
   @ApiProperty({
@@ -39,8 +40,8 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty({ message: 'Password is required' })
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-    message: 'Password must contain uppercase, lowercase, and number/special character',
+  @Matches(PASSWORD_PATTERN, {
+    message: PASSWORD_PATTERN_MESSAGE,
   })
   password: string;
 }

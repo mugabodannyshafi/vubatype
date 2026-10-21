@@ -20,6 +20,7 @@ export interface GuestSessionResult {
   guest: GuestProfile;
   created: boolean;
   token?: string;
+  sessionId: string;
 }
 
 @Injectable()
@@ -36,7 +37,7 @@ export class GuestService {
       if (existing) {
         existing.nickname = nickname;
         const saved = await this.entityManager.save(existing);
-        return { guest: this.toProfile(saved), created: false };
+        return { guest: this.toProfile(saved), created: false, sessionId: String(saved.id) };
       }
     }
 
@@ -50,7 +51,28 @@ export class GuestService {
     });
     const saved = await this.entityManager.save(session);
 
-    return { guest: this.toProfile(saved), created: true, token };
+    return { guest: this.toProfile(saved), created: true, token, sessionId: String(saved.id) };
+  }
+
+  /**
+   * Attach an unclaimed guest to a user. Existing results stay on this guest row.
+   * A guest already linked to someone else is left unchanged.
+   */
+  async linkToUser(guestId: string, userId: string): Promise<void> {
+    const session = await this.entityManager.findOne(GuestSession, {
+      where: { id: guestId },
+      relations: { user: true },
+    });
+
+    if (!session || session.user?.id) {
+      return;
+    }
+
+    await this.entityManager
+      .createQueryBuilder()
+      .relation(GuestSession, 'user')
+      .of(session.id)
+      .set(userId);
   }
 
   async findValidByToken(rawToken?: string): Promise<GuestSession | null> {
