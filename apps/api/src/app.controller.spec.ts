@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AvatarSeeder } from './database/seeders/avatars.seeder';
 import { LanguageSeeder } from './database/seeders/languages.seeder';
+import { TypingWordSeeder } from './database/seeders/typing-words.seeder';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -15,6 +16,7 @@ describe('AppController', () => {
       providers: [
         AppService,
         LanguageSeeder,
+        TypingWordSeeder,
         AvatarSeeder,
         {
           provide: getEntityManagerToken(),

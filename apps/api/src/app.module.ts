@@ -11,6 +11,7 @@ import { RoomModule } from './modules/room/room.module';
 import { RaceModule } from './modules/race/race.module';
 import { AvatarSeeder } from './database/seeders/avatars.seeder';
 import { LanguageSeeder } from './database/seeders/languages.seeder';
+import { TypingWordSeeder } from './database/seeders/typing-words.seeder';
 
 @Module({
   imports: [
@@ -28,6 +29,6 @@ import { LanguageSeeder } from './database/seeders/languages.seeder';
     RaceModule,
   ],
   controllers: [AppController],
-  providers: [AppService, LanguageSeeder, AvatarSeeder],
+  providers: [AppService, LanguageSeeder, TypingWordSeeder, AvatarSeeder],
 })
 export class AppModule {}
