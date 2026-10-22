@@ -37,7 +37,7 @@ export function SettingsPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarMessage, setAvatarMessage] = useState<string | null>(null);
-  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [avatarPending, setAvatarPending] = useState<"upload" | "remove" | null>(null);
   const [trackedUser, setTrackedUser] = useState(user);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,7 +99,7 @@ export function SettingsPage() {
     }
     setAvatarError(null);
     setAvatarMessage(null);
-    setSavingAvatar(true);
+    setAvatarPending("upload");
     try {
       await uploadAvatar(avatarFile);
       clearAvatarPicker();
@@ -108,14 +108,14 @@ export function SettingsPage() {
     } catch (caught) {
       setAvatarError(caught instanceof ApiError ? caught.message : "Could not upload that picture");
     } finally {
-      setSavingAvatar(false);
+      setAvatarPending(null);
     }
   }
 
   async function onRemoveAvatar() {
     setAvatarError(null);
     setAvatarMessage(null);
-    setSavingAvatar(true);
+    setAvatarPending("remove");
     try {
       await removeAvatar();
       clearAvatarPicker();
@@ -124,7 +124,7 @@ export function SettingsPage() {
     } catch (caught) {
       setAvatarError(caught instanceof ApiError ? caught.message : "Could not remove that picture");
     } finally {
-      setSavingAvatar(false);
+      setAvatarPending(null);
     }
   }
 
@@ -212,11 +212,17 @@ export function SettingsPage() {
         ) : null}
         {avatarMessage ? <p className="text-sm text-link">{avatarMessage}</p> : null}
         <div className="flex gap-2">
-          <AppButton isDisabled={!avatarFile || savingAvatar} type="button" onPress={() => void onUploadAvatar()}>
-            {savingAvatar ? "Saving" : "Upload"}
+          <AppButton
+            isDisabled={!avatarFile || avatarPending != null}
+            isPending={avatarPending === "upload"}
+            type="button"
+            onPress={() => void onUploadAvatar()}
+          >
+            Upload
           </AppButton>
           <AppButton
-            isDisabled={!user.avatar_url || savingAvatar}
+            isDisabled={!user.avatar_url || avatarPending != null}
+            isPending={avatarPending === "remove"}
             type="button"
             variant="secondary"
             onPress={() => void onRemoveAvatar()}
@@ -260,8 +266,8 @@ export function SettingsPage() {
           </p>
         ) : null}
         {profileMessage ? <p className="text-sm text-link">{profileMessage}</p> : null}
-        <AppButton className="self-start" isDisabled={savingProfile} type="submit">
-          {savingProfile ? "Saving" : "Save profile"}
+        <AppButton className="self-start" isPending={savingProfile} type="submit">
+          Save profile
         </AppButton>
       </form>
 
@@ -301,8 +307,8 @@ export function SettingsPage() {
           </p>
         ) : null}
         {passwordMessage ? <p className="text-sm text-link">{passwordMessage}</p> : null}
-        <AppButton className="self-start" isDisabled={savingPassword} type="submit" variant="secondary">
-          {savingPassword ? "Updating" : "Update password"}
+        <AppButton className="self-start" isPending={savingPassword} type="submit" variant="secondary">
+          Update password
         </AppButton>
       </form>
     </div>

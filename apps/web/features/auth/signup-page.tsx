@@ -100,8 +100,8 @@ export function SignupPage() {
             {error}
           </p>
         ) : null}
-        <AppButton isDisabled={submitting} type="submit">
-          {submitting ? "Creating account" : "Create account"}
+        <AppButton isPending={submitting} type="submit">
+          Create account
         </AppButton>
       </form>
       <p className="text-sm text-muted">

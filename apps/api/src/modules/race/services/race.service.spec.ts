@@ -9,6 +9,7 @@ import { MatchResult } from 'src/database/entities/match-result.entity';
 import { Room } from 'src/database/entities/room.entity';
 import { RoomPlayer } from 'src/database/entities/room-player.entity';
 import { TypingScoreService } from 'src/modules/practice/services/typing-score.service';
+import { RaceAnalytics } from '../race.types';
 import { RaceService } from './race.service';
 
 describe('RaceService', () => {
@@ -45,9 +46,22 @@ describe('RaceService', () => {
     update: jest.fn(),
   };
 
+  const mockResultQuery = {
+    innerJoin: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    addGroupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(async () => []),
+  };
+
   const mockResultRepository = {
     create: jest.fn((data: object) => data),
     save: jest.fn(async (rows: MatchResult[]) => rows),
+    createQueryBuilder: jest.fn(() => mockResultQuery),
   };
 
   const mockRoomService = {
@@ -93,6 +107,8 @@ describe('RaceService', () => {
     mockRoomService.loadByCode.mockResolvedValue(room);
     mockRoomService.assertCanStart.mockReturnValue(players);
     mockRaceText.generate.mockResolvedValue({ id: '9', content: passage });
+    mockResultQuery.getRawMany.mockResolvedValue([]);
+    delete host.user;
     jest.useFakeTimers({ now: new Date('2026-10-21T12:00:00.000Z') });
   });
 
@@ -312,5 +328,138 @@ describe('RaceService', () => {
     const finishedEvents = emitted.filter((event) => event.event === 'race:finished');
     await jest.advanceTimersByTimeAsync(60_000);
     expect(emitted.filter((event) => event.event === 'race:finished')).toEqual(finishedEvents);
+  });
+
+  it('samples pace once a second, counts real keystrokes, and leaves live standings unchanged', async () => {
+    await startRace();
+    await jest.advanceTimersByTimeAsync(1_000);
+    await service.progress(host, code, 'hx');
+    await service.progress(host, code, 'h');
+    await jest.advanceTimersByTimeAsync(1_000);
+
+    const standings = emitted.filter((event) => event.event === 'race:standings');
+    expect(standings.length).toBeGreaterThan(0);
+    for (const event of standings) {
+      const payload = event.payload as { racers: Array<Record<string, unknown>> };
+      expect(payload.racers.every((racer) => !('analytics' in racer))).toBe(true);
+    }
+
+    await service.progress(host, code, passage);
+    await service.progress(rival, code, passage);
+
+    const finished = emitted.find((event) => event.event === 'race:finished')?.payload as {
+      racers: Array<{ guest_id: number; analytics?: RaceAnalytics }>;
+    };
+    const hostResult = finished.racers.find((racer) => racer.guest_id === 4);
+    expect(hostResult?.analytics).toEqual(
+      expect.objectContaining({
+        correct_keystrokes: passage.length,
+        incorrect_keystrokes: 1,
+        corrections: 1,
+        personal_best: false,
+      }),
+    );
+    expect(hostResult?.analytics?.pace.map((sample) => sample.t)).toEqual([0, 1_000, 2_000]);
+
+    const saved = mockResultRepository.save.mock.calls[0][0] as MatchResult[];
+    const savedHost = saved.find((result) => result.guest.id === '4');
+    expect(savedHost?.correct_keystrokes).toBe(passage.length);
+    expect(savedHost?.incorrect_keystrokes).toBe(1);
+    expect(savedHost?.corrections).toBe(1);
+    expect(savedHost?.is_personal_best).toBe(false);
+    expect(savedHost?.pace_samples?.map((sample) => sample.t)).toEqual([0, 1_000, 2_000]);
+    expect(mockResultRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks a finished race as a personal best only when it beats a previous finish', async () => {
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '4', user_id: null, best_wpm: '40.00' },
+    ]);
+    await startRace();
+    await jest.advanceTimersByTimeAsync(2_000);
+    await service.progress(host, code, passage);
+    await service.progress(rival, code, passage);
+
+    const saved = mockResultRepository.save.mock.calls[0][0] as MatchResult[];
+    expect(saved.find((result) => result.guest.id === '4')?.is_personal_best).toBe(true);
+    expect(saved.find((result) => result.guest.id === '8')?.is_personal_best).toBe(false);
+  });
+
+  it('does not mark a tie or a first race, and ignores a faster DNF', async () => {
+    await startRace();
+    await jest.advanceTimersByTimeAsync(2_000);
+    await service.progress(host, code, passage);
+    await service.progress(rival, code, passage);
+    let saved = mockResultRepository.save.mock.calls[0][0] as MatchResult[];
+    expect(saved.every((result) => result.is_personal_best === false)).toBe(true);
+
+    service.onModuleDestroy();
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '4', user_id: null, best_wpm: '66.00' },
+    ]);
+    await startRace();
+    await jest.advanceTimersByTimeAsync(2_000);
+    await service.progress(host, code, passage);
+    await service.progress(rival, code, passage);
+    const tieCall =
+      mockResultRepository.save.mock.calls[mockResultRepository.save.mock.calls.length - 1];
+    saved = tieCall?.[0] as MatchResult[];
+    expect(saved.find((result) => result.guest.id === '4')?.is_personal_best).toBe(false);
+
+    service.onModuleDestroy();
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '4', user_id: null, best_wpm: '1.00' },
+    ]);
+    await startRace();
+    await jest.advanceTimersByTimeAsync(1_000);
+    await service.progress(host, code, 'hello');
+    await jest.advanceTimersByTimeAsync(29_000);
+    const dnfCall =
+      mockResultRepository.save.mock.calls[mockResultRepository.save.mock.calls.length - 1];
+    saved = dnfCall?.[0] as MatchResult[];
+    expect(saved.find((result) => result.guest.id === '4')?.is_personal_best).toBe(false);
+    expect(Number(saved.find((result) => result.guest.id === '4')?.net_wpm)).toBeGreaterThan(1);
+  });
+
+  it('compares a signed-in racer with earlier races from the same account', async () => {
+    host.user = { id: '70' } as GuestSession['user'];
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '99', user_id: '70', best_wpm: '40.00' },
+    ]);
+    await startRace();
+    await jest.advanceTimersByTimeAsync(2_000);
+    await service.progress(host, code, passage);
+    await service.progress(rival, code, passage);
+
+    const saved = mockResultRepository.save.mock.calls[0][0] as MatchResult[];
+    expect(saved.find((result) => result.guest.id === '4')?.is_personal_best).toBe(true);
+    expect(mockResultQuery.andWhere).toHaveBeenCalledWith(
+      '(guest.id IN (:...guestIds) OR account.id IN (:...userIds))',
+      expect.objectContaining({ userIds: ['70'] }),
+    );
+  });
+
+  it('returns the room to the lobby so the next start uses a new passage', async () => {
+    await startRace();
+    await jest.advanceTimersByTimeAsync(1_000);
+    await service.progress(host, code, passage);
+    await service.progress(rival, code, passage);
+    expect(service.syncFor(code, '4')?.phase).toBe('finished');
+
+    await expect(service.rematch(rival, code)).rejects.toThrow(ForbiddenException);
+    mockRoomService.loadByCode.mockResolvedValue({ ...room, status: RoomStatus.FINISHED });
+    await service.rematch(host, code);
+
+    expect(mockRoomService.resetLobby).toHaveBeenCalledWith('101');
+    expect(service.syncFor(code, '4')).toBeNull();
+
+    mockRoomService.loadByCode.mockResolvedValue(room);
+    mockRaceText.generate.mockResolvedValue({ id: '10', content: 'a fresh passage' });
+    await service.start(host, code, ['4', '8']);
+
+    expect(mockRaceText.generate).toHaveBeenCalledTimes(2);
+    const countdowns = emitted.filter((event) => event.event === 'race:countdown');
+    const countdown = countdowns[countdowns.length - 1];
+    expect(countdown?.payload).toEqual(expect.objectContaining({ passage: 'a fresh passage' }));
   });
 });

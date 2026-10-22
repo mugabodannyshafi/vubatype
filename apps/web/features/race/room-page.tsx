@@ -30,7 +30,7 @@ export function RoomPage({ code }: RoomPageProps) {
       {race.screen === "closed" ? (
         <div className="flex flex-col gap-4">
           <ErrorState description="This room is no longer open." title="Room closed" />
-          <AppButton className="w-fit" onPress={race.leave}>
+          <AppButton className="w-fit" isPending={race.pending === "leave"} onPress={race.leave}>
             Back home
           </AppButton>
         </div>
@@ -38,6 +38,7 @@ export function RoomPage({ code }: RoomPageProps) {
       {race.screen === "lobby" && race.room ? (
         <RoomLobby
           canStart={race.canStart}
+          pending={race.pending}
           room={race.room}
           you={race.you}
           onLeave={race.leave}
@@ -59,7 +60,15 @@ export function RoomPage({ code }: RoomPageProps) {
         />
       ) : null}
       {race.screen === "results" ? (
-        <RaceResults racers={race.racers} you={race.you} onLeave={race.leave} onRematch={race.rematch} />
+        <RaceResults
+          passage={race.passage}
+          pending={race.pending}
+          racers={race.racers}
+          typedText={race.typedText}
+          you={race.you}
+          onLeave={race.leave}
+          onRematch={race.rematch}
+        />
       ) : null}
     </div>
   );

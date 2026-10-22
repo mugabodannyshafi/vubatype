@@ -76,8 +76,8 @@ export function LoginPage() {
             {error}
           </p>
         ) : null}
-        <AppButton isDisabled={submitting} type="submit">
-          {submitting ? "Logging in" : "Log in"}
+        <AppButton isPending={submitting} type="submit">
+          Log in
         </AppButton>
       </form>
       <p className="text-sm text-muted">

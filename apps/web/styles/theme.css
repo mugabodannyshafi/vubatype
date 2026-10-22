@@ -58,6 +58,10 @@
   --typing-correct: #15803d;
   --typing-incorrect: var(--danger);
   --typing-caret: var(--accent);
+
+  --race-asphalt: #c5ced8;
+  --race-dash: color-mix(in oklab, #ffffff 78%, transparent);
+  --race-edge: color-mix(in oklab, #ffffff 55%, transparent);
 }
 
 .dark,
@@ -103,6 +107,10 @@
   --typing-correct: #22c55e;
   --typing-incorrect: var(--danger);
   --typing-caret: var(--accent);
+
+  --race-asphalt: #12161d;
+  --race-dash: color-mix(in oklab, #f4f5f7 32%, transparent);
+  --race-edge: color-mix(in oklab, #f4f5f7 14%, transparent);
 }
 
 .button.button--secondary {
@@ -157,6 +165,15 @@
   }
 }
 
+.race-results {
+  animation: race-results-in 220ms ease;
+}
+
+.race-trophy {
+  transform-origin: center;
+  animation: race-trophy-in 480ms ease-out;
+}
+
 @keyframes practice-view-in {
   from {
     opacity: 0;
@@ -167,84 +184,90 @@
   }
 }
 
-.race-lane {
-  --race-progress: 0;
-}
-
-.race-progress {
-  width: calc(var(--race-progress) * 0.62%);
-  animation: race-fill 2.6s ease-in-out infinite;
-}
-
-.race-runner {
-  left: calc(var(--race-progress) * 0.62%);
-  animation: race-advance 2.6s ease-in-out infinite;
-}
-
-.race-runner-figure {
-  animation: race-bob 0.48s ease-in-out infinite;
-}
-
-@keyframes race-fill {
-  0%,
-  100% {
-    width: calc(var(--race-progress) * 0.62%);
+@keyframes race-results-in {
+  from {
+    opacity: 0;
   }
 
-  50% {
-    width: calc(var(--race-progress) * 0.84%);
+  to {
+    opacity: 1;
   }
 }
 
-@keyframes race-advance {
-  0%,
-  100% {
-    left: calc(var(--race-progress) * 0.62%);
+@keyframes race-trophy-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
   }
 
-  50% {
-    left: calc(var(--race-progress) * 0.84%);
-  }
-}
-
-@keyframes race-bob {
-  0%,
-  100% {
-    transform: translateY(1px);
-  }
-
-  50% {
-    transform: translateY(-2px);
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
-.live-race-fill {
-  transition: width 120ms linear;
+.race-road {
+  background-color: var(--race-asphalt);
+  box-shadow:
+    inset 0 1px 0 var(--race-edge),
+    inset 0 -1px 0 var(--race-edge);
 }
 
-.live-race-car {
+.race-road-dashes {
+  height: 2px;
+  background-image: repeating-linear-gradient(90deg, var(--race-dash) 0 10px, transparent 10px 18px);
+}
+
+.race-car-slot {
+  --race-car-width: 4.5rem;
+  top: 50%;
+  width: var(--race-car-width);
+  transform: translateY(-50%);
   transition: left 120ms linear;
+}
+
+.race-wheel {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.race-car-moving .race-wheel {
+  animation: race-wheel-spin 0.55s linear infinite;
+}
+
+.race-car-moving {
+  filter: drop-shadow(-6px 0 0 color-mix(in oklab, var(--foreground) 14%, transparent));
+}
+
+@keyframes race-wheel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (min-width: 40rem) {
+  .race-car-slot {
+    --race-car-width: 5.25rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .typing-caret,
   .practice-view,
-  .race-progress,
-  .race-runner,
-  .race-runner-figure {
+  .race-results,
+  .race-trophy {
     animation: none;
   }
 
-  .race-progress {
-    width: calc(var(--race-progress) * 0.84%);
+  .race-car-moving .race-wheel {
+    animation: none;
   }
 
-  .race-runner {
-    left: calc(var(--race-progress) * 0.84%);
+  .race-car-moving {
+    filter: none;
   }
 
-  .live-race-fill,
-  .live-race-car {
+  .race-car-slot {
     transition: none;
   }
 }

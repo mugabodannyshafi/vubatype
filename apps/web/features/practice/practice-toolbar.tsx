@@ -3,6 +3,7 @@
 import { ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { useTypingLanguage } from "@/components/language/language-provider";
+import { TypingSoundControl } from "@/components/typing/typing-sound-control";
 import { AppButton } from "@/components/ui/app-button";
 import type { PracticeDifficulty, PracticeDuration } from "@/lib/api/practice";
 import { LANGUAGES, type LanguageCode } from "@/lib/constants/languages";
@@ -121,16 +122,12 @@ export function PracticeToolbar({
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      <AppButton
-        aria-keyshortcuts="Tab"
-        className="sm:ml-auto"
-        isDisabled={locked}
-        size="sm"
-        variant="ghost"
-        onPress={onRestart}
-      >
-        Restart
-      </AppButton>
+      <div className="ml-auto flex items-center gap-2">
+        <AppButton aria-keyshortcuts="Tab" isDisabled={locked} size="sm" variant="ghost" onPress={onRestart}>
+          Restart
+        </AppButton>
+        <TypingSoundControl />
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { TypingInput } from "@/components/typing/typing-input";
 import { TypingText } from "@/components/typing/typing-text";
 import { useTypingSettingsLock } from "@/components/typing/typing-settings-lock";
 import type { PracticeDifficulty, PracticeDuration, StartPracticeInput } from "@/lib/api/practice";
+import { useTypingSound } from "@/lib/sound/use-typing-sound";
 import { buildTypingCharacters, typingCaretIndex } from "@/lib/typing/characters";
 
 import { PracticeLiveHud } from "./practice-live-hud";
@@ -20,6 +21,7 @@ export function PracticePage() {
   const { setLocked } = useTypingSettingsLock();
   const practice = useSoloPractice();
   const { prepare, restart } = practice;
+  const typingSound = useTypingSound(practice.passage, practice.typedText, "length");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [duration, setDuration] = useState<PracticeDuration>(30);
   const [difficulty, setDifficulty] = useState<PracticeDifficulty>("medium");
@@ -113,12 +115,18 @@ export function PracticePage() {
                 inputRef={inputRef}
                 mode={practice.phase === "typing" ? "typing" : "ready"}
                 onAbandon={reload}
-                onBackspace={practice.backspace}
+                onBackspace={() => typingSound.backspace(practice.backspace)}
                 onBlur={() => {}}
                 onFocus={() => {}}
-                onInsert={practice.insertText}
+                onInsert={(text) => typingSound.insert(text, practice.insertText)}
                 onRestart={reload}
-                onStart={practice.startTyping}
+                onStart={(text) => {
+                  if (practice.phase === "ready") {
+                    typingSound.insert(text, practice.startTyping);
+                    return;
+                  }
+                  practice.startTyping(text);
+                }}
               />
             ) : null}
           </div>

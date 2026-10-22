@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { TypingInput } from "@/components/typing/typing-input";
+import { TypingSoundControl } from "@/components/typing/typing-sound-control";
 import { TypingText } from "@/components/typing/typing-text";
+import { useTypingSound } from "@/lib/sound/use-typing-sound";
 import { buildTypingCharacters, typingCaretIndex } from "@/lib/typing/characters";
 import { scoreRaceTyping } from "@/lib/race/progress";
 import type { RaceRacer } from "@/lib/race/types";
@@ -41,6 +43,7 @@ export function RaceStage({
   typedText,
 }: RaceStageProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const typingSound = useTypingSound(passage, typedText, "exact");
   const [now, setNow] = useState(() => Date.now());
   const characters = useMemo(() => buildTypingCharacters(passage, typedText), [passage, typedText]);
   const finishedLocally = passage.length > 0 && typedText === passage;
@@ -59,6 +62,7 @@ export function RaceStage({
       name: racer.nickname,
       avatarUrl: racer.avatar_url,
       wpm: Math.round(racer.wpm),
+      accuracy: racer.accuracy,
       progress: racer.progress,
       finished: racer.finished,
     }));
@@ -85,6 +89,7 @@ export function RaceStage({
           {screen === "racing" && remaining != null ? (
             <Stat label="Time" value={formatClock(remaining)} large />
           ) : null}
+          <TypingSoundControl />
         </div>
       </div>
       {lanes.length > 0 ? <LiveRaceTrack racers={lanes} /> : null}
@@ -113,12 +118,12 @@ export function RaceStage({
             mode="typing"
             restoreFocus
             onAbandon={() => {}}
-            onBackspace={onBackspace}
+            onBackspace={() => typingSound.backspace(onBackspace)}
             onBlur={() => {}}
             onFocus={() => {}}
-            onInsert={onType}
+            onInsert={(text) => typingSound.insert(text, onType)}
             onRestart={() => {}}
-            onStart={onType}
+            onStart={(text) => typingSound.insert(text, onType)}
           />
         ) : null}
       </div>
