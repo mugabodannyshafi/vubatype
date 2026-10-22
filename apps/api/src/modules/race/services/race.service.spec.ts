@@ -372,7 +372,9 @@ describe('RaceService', () => {
   });
 
   it('marks a finished race as a personal best only when it beats a previous finish', async () => {
-    mockResultQuery.getRawMany.mockResolvedValue([{ guest_id: '4', user_id: null, best_wpm: '40.00' }]);
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '4', user_id: null, best_wpm: '40.00' },
+    ]);
     await startRace();
     await jest.advanceTimersByTimeAsync(2_000);
     await service.progress(host, code, passage);
@@ -392,22 +394,28 @@ describe('RaceService', () => {
     expect(saved.every((result) => result.is_personal_best === false)).toBe(true);
 
     service.onModuleDestroy();
-    mockResultQuery.getRawMany.mockResolvedValue([{ guest_id: '4', user_id: null, best_wpm: '66.00' }]);
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '4', user_id: null, best_wpm: '66.00' },
+    ]);
     await startRace();
     await jest.advanceTimersByTimeAsync(2_000);
     await service.progress(host, code, passage);
     await service.progress(rival, code, passage);
-    const tieCall = mockResultRepository.save.mock.calls[mockResultRepository.save.mock.calls.length - 1];
+    const tieCall =
+      mockResultRepository.save.mock.calls[mockResultRepository.save.mock.calls.length - 1];
     saved = tieCall?.[0] as MatchResult[];
     expect(saved.find((result) => result.guest.id === '4')?.is_personal_best).toBe(false);
 
     service.onModuleDestroy();
-    mockResultQuery.getRawMany.mockResolvedValue([{ guest_id: '4', user_id: null, best_wpm: '1.00' }]);
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '4', user_id: null, best_wpm: '1.00' },
+    ]);
     await startRace();
     await jest.advanceTimersByTimeAsync(1_000);
     await service.progress(host, code, 'hello');
     await jest.advanceTimersByTimeAsync(29_000);
-    const dnfCall = mockResultRepository.save.mock.calls[mockResultRepository.save.mock.calls.length - 1];
+    const dnfCall =
+      mockResultRepository.save.mock.calls[mockResultRepository.save.mock.calls.length - 1];
     saved = dnfCall?.[0] as MatchResult[];
     expect(saved.find((result) => result.guest.id === '4')?.is_personal_best).toBe(false);
     expect(Number(saved.find((result) => result.guest.id === '4')?.net_wpm)).toBeGreaterThan(1);
@@ -415,7 +423,9 @@ describe('RaceService', () => {
 
   it('compares a signed-in racer with earlier races from the same account', async () => {
     host.user = { id: '70' } as GuestSession['user'];
-    mockResultQuery.getRawMany.mockResolvedValue([{ guest_id: '99', user_id: '70', best_wpm: '40.00' }]);
+    mockResultQuery.getRawMany.mockResolvedValue([
+      { guest_id: '99', user_id: '70', best_wpm: '40.00' },
+    ]);
     await startRace();
     await jest.advanceTimersByTimeAsync(2_000);
     await service.progress(host, code, passage);
