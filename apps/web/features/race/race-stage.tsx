@@ -59,6 +59,7 @@ export function RaceStage({
       name: racer.nickname,
       avatarUrl: racer.avatar_url,
       wpm: Math.round(racer.wpm),
+      accuracy: racer.accuracy,
       progress: racer.progress,
       finished: racer.finished,
     }));

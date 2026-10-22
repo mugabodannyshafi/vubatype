@@ -8,11 +8,14 @@ import { AppButton } from "@/components/ui/app-button";
 import type { RoomView } from "@/lib/api/rooms";
 import type { RoomYou } from "@/lib/race/types";
 
+import type { PendingAction } from "./use-race-room";
+
 type RoomLobbyProps = {
   canStart: boolean;
   onLeave: () => void;
   onReady: (ready: boolean) => void;
   onStart: () => void;
+  pending: PendingAction | null;
   room: RoomView;
   you: RoomYou | null;
 };
@@ -24,7 +27,7 @@ function difficultyLabel(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function RoomLobby({ canStart, onLeave, onReady, onStart, room, you }: RoomLobbyProps) {
+export function RoomLobby({ canStart, onLeave, onReady, onStart, pending, room, you }: RoomLobbyProps) {
   const [copied, setCopied] = useState(false);
   const invitePath = `/rooms/${room.code}`;
 
@@ -88,16 +91,30 @@ export function RoomLobby({ canStart, onLeave, onReady, onStart, room, you }: Ro
       </ul>
       <div className="flex flex-wrap items-center gap-3">
         {you ? (
-          <AppButton variant={you.is_ready ? "secondary" : "primary"} onPress={() => onReady(!you.is_ready)}>
+          <AppButton
+            isDisabled={pending != null && pending !== "ready"}
+            isPending={pending === "ready"}
+            variant={you.is_ready ? "secondary" : "primary"}
+            onPress={() => onReady(!you.is_ready)}
+          >
             {you.is_ready ? "Not ready" : "Ready"}
           </AppButton>
         ) : null}
         {you?.is_host ? (
-          <AppButton isDisabled={!canStart} onPress={onStart}>
+          <AppButton
+            isDisabled={!canStart || (pending != null && pending !== "start")}
+            isPending={pending === "start"}
+            onPress={onStart}
+          >
             Start race
           </AppButton>
         ) : null}
-        <AppButton variant="ghost" onPress={onLeave}>
+        <AppButton
+          isDisabled={pending != null && pending !== "leave"}
+          isPending={pending === "leave"}
+          variant="ghost"
+          onPress={onLeave}
+        >
           Leave
         </AppButton>
       </div>

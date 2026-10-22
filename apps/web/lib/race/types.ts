@@ -1,5 +1,20 @@
 export type RacePhase = "countdown" | "running" | "finished";
 
+export type RacePaceSample = {
+  t: number;
+  prefix: number;
+  incorrect: number;
+  typed: number;
+};
+
+export type RaceAnalytics = {
+  pace: RacePaceSample[];
+  correct_keystrokes: number;
+  incorrect_keystrokes: number;
+  corrections: number;
+  personal_best: boolean;
+};
+
 export type RaceRacer = {
   guest_id: number;
   nickname: string;
@@ -11,6 +26,7 @@ export type RaceRacer = {
   rank: number;
   disconnected: boolean;
   completion_time_ms: number | null;
+  analytics?: RaceAnalytics;
 };
 
 export type RaceSync = {

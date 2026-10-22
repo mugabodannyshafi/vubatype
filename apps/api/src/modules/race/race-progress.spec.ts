@@ -2,10 +2,13 @@
 
 import {
   acceptsTypedUpdate,
+  appendPaceSample,
   correctPrefixLength,
+  countTypingDelta,
   isExactCompletion,
   progressPercent,
   scoreRaceProgress,
+  type RacePaceSample,
 } from './race-progress';
 
 describe('race progress', () => {
@@ -41,5 +44,48 @@ describe('race progress', () => {
     expect(score.accuracy).toBeLessThan(100);
     expect(score.incorrectChars).toBeGreaterThan(0);
     expect(score.elapsedMs).toBe(30_000);
+  });
+
+  it('counts new characters and only treats a deleted mistake as a correction', () => {
+    expect(countTypingDelta(passage, '', 'he')).toEqual({
+      correctKeystrokes: 2,
+      incorrectKeystrokes: 0,
+      corrections: 0,
+    });
+    expect(countTypingDelta(passage, 'he', 'hex')).toEqual({
+      correctKeystrokes: 0,
+      incorrectKeystrokes: 1,
+      corrections: 0,
+    });
+    expect(countTypingDelta(passage, 'hex', 'he')).toEqual({
+      correctKeystrokes: 0,
+      incorrectKeystrokes: 0,
+      corrections: 1,
+    });
+    expect(countTypingDelta(passage, 'hello', 'hell')).toEqual({
+      correctKeystrokes: 0,
+      incorrectKeystrokes: 0,
+      corrections: 0,
+    });
+    expect(countTypingDelta(passage, 'hello', 'hallo')).toEqual({
+      correctKeystrokes: 0,
+      incorrectKeystrokes: 0,
+      corrections: 0,
+    });
+  });
+
+  it('keeps one pace sample per elapsed second and caps the race duration', () => {
+    const samples: RacePaceSample[] = [];
+    appendPaceSample(samples, { t: 0, prefix: 0, incorrect: 0, typed: 0 }, 2);
+    appendPaceSample(samples, { t: 400, prefix: 1, incorrect: 0, typed: 1 }, 2);
+    appendPaceSample(samples, { t: 1_000, prefix: 2, incorrect: 0, typed: 2 }, 2);
+    appendPaceSample(samples, { t: 2_400, prefix: 4, incorrect: 1, typed: 5 }, 2);
+    appendPaceSample(samples, { t: 500, prefix: 9, incorrect: 9, typed: 9 }, 2);
+
+    expect(samples).toEqual([
+      { t: 400, prefix: 1, incorrect: 0, typed: 1 },
+      { t: 1_000, prefix: 2, incorrect: 0, typed: 2 },
+      { t: 2_000, prefix: 4, incorrect: 1, typed: 5 },
+    ]);
   });
 });

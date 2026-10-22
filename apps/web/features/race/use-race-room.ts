@@ -25,6 +25,10 @@ type RoomStateEvent = {
   sync: RaceSync | null;
 };
 
+export type PendingAction = "ready" | "start" | "leave" | "rematch";
+
+const ACTION_TIMEOUT_MS = 8_000;
+
 type RaceRoom = {
   screen: RoomScreen;
   room: RoomView | null;
@@ -37,6 +41,7 @@ type RaceRoom = {
   deadlineAt: number | null;
   serverOffset: number;
   error: string | null;
+  pending: PendingAction | null;
   leave: () => void;
   setReady: (ready: boolean) => void;
   startRace: () => void;
@@ -69,6 +74,8 @@ export function useRaceRoom(code: string): RaceRoom {
   const [deadlineAt, setDeadlineAt] = useState<number | null>(null);
   const [serverOffset, setServerOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const pendingRef = useRef<PendingAction | null>(null);
 
   const showScreen = useCallback((next: RoomScreen) => {
     screenRef.current = next;
@@ -248,38 +255,79 @@ export function useRaceRoom(code: string): RaceRoom {
     };
   }, [applyRoom, code, showScreen]);
 
+  const finishPending = useCallback((action: PendingAction) => {
+    if (pendingRef.current !== action) {
+      return;
+    }
+    pendingRef.current = null;
+    setPending(null);
+  }, []);
+
+  const emitWaiting = useCallback(
+    (action: PendingAction, event: string, payload: object) => {
+      if (pendingRef.current) {
+        return;
+      }
+      const socket = socketRef.current;
+      if (!socket) {
+        return;
+      }
+      pendingRef.current = action;
+      setPending(action);
+      socket.timeout(ACTION_TIMEOUT_MS).emit(event, payload, (ackError: unknown) => {
+        if (ackError) {
+          setError("The server took too long. Try again.");
+        }
+        finishPending(action);
+      });
+    },
+    [finishPending],
+  );
+
   const leave = useCallback(() => {
+    if (pendingRef.current) {
+      return;
+    }
     leftRef.current = true;
     const socket = socketRef.current;
     if (!socket) {
       router.push("/");
       return;
     }
+    pendingRef.current = "leave";
+    setPending("leave");
     let finished = false;
     const goHome = () => {
       if (finished) {
         return;
       }
       finished = true;
+      pendingRef.current = null;
+      setPending(null);
       socket.disconnect();
       router.push("/");
     };
-    socket.emit("room:leave", { code: codeRef.current }, goHome);
-    window.setTimeout(goHome, 700);
+    socket.timeout(ACTION_TIMEOUT_MS).emit("room:leave", { code: codeRef.current }, goHome);
   }, [router]);
 
-  const setReady = useCallback((ready: boolean) => {
-    socketRef.current?.emit("room:ready", { code: codeRef.current, ready });
-  }, []);
+  const setReady = useCallback(
+    (ready: boolean) => {
+      emitWaiting("ready", "room:ready", { code: codeRef.current, ready });
+    },
+    [emitWaiting],
+  );
 
   const startRace = useCallback(() => {
-    socketRef.current?.emit("race:start", { code: codeRef.current });
-  }, []);
+    emitWaiting("start", "race:start", { code: codeRef.current });
+  }, [emitWaiting]);
 
   const rematch = useCallback(() => {
+    if (pendingRef.current || !socketRef.current) {
+      return;
+    }
     hydratedRef.current = false;
-    socketRef.current?.emit("race:rematch", { code: codeRef.current });
-  }, []);
+    emitWaiting("rematch", "race:rematch", { code: codeRef.current });
+  }, [emitWaiting]);
 
   const typeCharacter = useCallback(
     (text: string) => {
@@ -313,6 +361,7 @@ export function useRaceRoom(code: string): RaceRoom {
     deadlineAt,
     serverOffset,
     error,
+    pending,
     leave,
     setReady,
     startRace,

@@ -302,6 +302,45 @@ describe('RoomService', () => {
       expect(result.status).toBe(RoomStatus.RACING);
     });
 
+    it('uses a linked account display name and keeps an unlinked guest nickname', async () => {
+      const linkedRoom = room();
+      const host = {
+        id: '4',
+        nickname: 'Guest1234',
+        user: { display_name: '  Amahoro  ', avatar_url: 'https://cdn.example/ama.png' },
+      };
+      linkedRoom.host_guest = host as GuestSession;
+      linkedRoom.players = [
+        {
+          id: '55',
+          is_ready: true,
+          joined_at: joinedAt,
+          left_at: null,
+          guest: host,
+        },
+        {
+          id: '56',
+          is_ready: false,
+          joined_at: laterJoinedAt,
+          left_at: null,
+          guest: { id: '8', nickname: 'Guest5678' },
+        },
+      ] as Room['players'];
+      mockRoomRepository.findOne.mockResolvedValue(linkedRoom);
+
+      const result = await service.getByCode('AB7K2QMN');
+
+      expect(result.host).toEqual({
+        id: 4,
+        nickname: 'Amahoro',
+        avatar_url: 'https://cdn.example/ama.png',
+      });
+      expect(result.players.map((player) => player.guest)).toEqual([
+        { id: 4, nickname: 'Amahoro', avatar_url: 'https://cdn.example/ama.png' },
+        { id: 8, nickname: 'Guest5678', avatar_url: null },
+      ]);
+    });
+
     it('rejects a malformed room code', async () => {
       await expect(service.getByCode('NOPE')).rejects.toThrow(
         new NotFoundException('Room not found'),

@@ -1,3 +1,15 @@
+import type { RacePaceSample } from './race-progress';
+
+export type { RacePaceSample };
+
+export interface RaceAnalytics {
+  pace: RacePaceSample[];
+  correct_keystrokes: number;
+  incorrect_keystrokes: number;
+  corrections: number;
+  personal_best: boolean;
+}
+
 export interface RaceStanding {
   guest_id: number;
   nickname: string;
@@ -9,6 +21,7 @@ export interface RaceStanding {
   rank: number;
   disconnected: boolean;
   completion_time_ms: number | null;
+  analytics?: RaceAnalytics;
 }
 
 export interface RaceSync {

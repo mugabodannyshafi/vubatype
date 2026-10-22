@@ -63,6 +63,26 @@ export class MatchResult {
   })
   status!: MatchResultStatus;
 
+  @Column({ type: 'jsonb', nullable: true })
+  pace_samples?: Array<{
+    t: number;
+    prefix: number;
+    incorrect: number;
+    typed: number;
+  }> | null;
+
+  @Column({ type: 'int', nullable: true })
+  correct_keystrokes?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  incorrect_keystrokes?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  corrections?: number | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  is_personal_best?: boolean | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at!: Date;
 }

@@ -157,6 +157,7 @@ export class RaceGateway
       await client.leave(this.channel(room.code));
       await this.afterDisconnect(room.code);
     });
+    return { ok: true };
   }
 
   @SubscribeMessage('room:ready')
@@ -170,6 +171,7 @@ export class RaceGateway
       await this.roomService.setReady(guest, room.code, Boolean(body?.ready));
       await this.broadcastState(room.code);
     });
+    return { ok: true };
   }
 
   @SubscribeMessage('race:start')
@@ -179,6 +181,7 @@ export class RaceGateway
       const room = await this.roomService.getByCode(this.requireCode(body));
       await this.raceService.start(guest, room.code, this.connectedGuestIds(room.code));
     });
+    return { ok: true };
   }
 
   @SubscribeMessage('race:progress')
@@ -209,6 +212,7 @@ export class RaceGateway
       await this.raceService.rematch(guest, room.code);
       await this.broadcastState(room.code);
     });
+    return { ok: true };
   }
 
   private async enter(client: Socket, guest: GuestSession, code: string): Promise<void> {

@@ -82,6 +82,80 @@ export function scoreRaceProgress(
   };
 }
 
+export interface KeystrokeDelta {
+  correctKeystrokes: number;
+  incorrectKeystrokes: number;
+  corrections: number;
+}
+
+export interface RacePaceSample {
+  t: number;
+  prefix: number;
+  incorrect: number;
+  typed: number;
+}
+
+export function countTypingDelta(passage: string, previous: string, next: string): KeystrokeDelta {
+  if (next.startsWith(previous)) {
+    let correctKeystrokes = 0;
+    let incorrectKeystrokes = 0;
+    for (let index = previous.length; index < next.length; index += 1) {
+      if (index < passage.length && next[index] === passage[index]) {
+        correctKeystrokes += 1;
+      } else {
+        incorrectKeystrokes += 1;
+      }
+    }
+    return { correctKeystrokes, incorrectKeystrokes, corrections: 0 };
+  }
+
+  if (previous.startsWith(next)) {
+    let corrections = 0;
+    for (let index = next.length; index < previous.length; index += 1) {
+      const removed = previous[index];
+      const wasWrong = index >= passage.length || removed !== passage[index];
+      if (wasWrong) {
+        corrections += 1;
+      }
+    }
+    return { correctKeystrokes: 0, incorrectKeystrokes: 0, corrections };
+  }
+
+  return { correctKeystrokes: 0, incorrectKeystrokes: 0, corrections: 0 };
+}
+
+export function appendPaceSample(
+  samples: RacePaceSample[],
+  sample: RacePaceSample,
+  durationSeconds: number,
+): void {
+  const capMs = Math.max(durationSeconds, 0) * 1000;
+  const elapsed = Math.min(Math.max(sample.t, 0), capMs);
+  const second = Math.floor(elapsed / 1000);
+  const last = samples[samples.length - 1];
+  const next: RacePaceSample = {
+    t: elapsed,
+    prefix: sample.prefix,
+    incorrect: sample.incorrect,
+    typed: sample.typed,
+  };
+
+  if (last && Math.floor(last.t / 1000) === second) {
+    samples[samples.length - 1] = next;
+    return;
+  }
+
+  if (last && second < Math.floor(last.t / 1000)) {
+    return;
+  }
+
+  if (samples.length >= Math.max(durationSeconds, 0) + 1) {
+    return;
+  }
+
+  samples.push(next);
+}
+
 function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, Math.round((value + Number.EPSILON) * 100) / 100));
 }

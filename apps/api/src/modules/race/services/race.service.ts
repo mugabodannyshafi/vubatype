@@ -21,16 +21,26 @@ import { Match } from 'src/database/entities/match.entity';
 import { Room } from 'src/database/entities/room.entity';
 import { RoomPlayer } from 'src/database/entities/room-player.entity';
 import { TypingPassage } from 'src/database/entities/typing-passage.entity';
+import { guestDisplayName } from 'src/modules/guest/guest-display-name';
 import { TypingScoreService } from 'src/modules/practice/services/typing-score.service';
 import { RoomService } from 'src/modules/room/services/room.service';
-import { acceptsTypedUpdate, isExactCompletion, scoreRaceProgress } from '../race-progress';
-import { RaceEmitter, RaceStanding, RaceSync } from '../race.types';
+import {
+  acceptsTypedUpdate,
+  appendPaceSample,
+  correctPrefixLength,
+  countTypingDelta,
+  isExactCompletion,
+  scoreRaceProgress,
+  type RacePaceSample,
+} from '../race-progress';
+import { RaceAnalytics, RaceEmitter, RaceStanding, RaceSync } from '../race.types';
 import { RaceTextService } from './race-text.service';
 
 export const COUNTDOWN_MS = 3_000;
 
 interface RacerState {
   guestId: string;
+  userId: string | null;
   participantId: string;
   nickname: string;
   avatarUrl: string | null;
@@ -41,6 +51,11 @@ interface RacerState {
   accuracy: number;
   correctChars: number;
   incorrectChars: number;
+  correctKeystrokes: number;
+  incorrectKeystrokes: number;
+  corrections: number;
+  paceSamples: RacePaceSample[];
+  personalBest: boolean;
   finished: boolean;
   completionTimeMs: number | null;
   disconnected: boolean;
@@ -59,6 +74,7 @@ interface RaceRuntime {
   racers: Map<string, RacerState>;
   countdownTimer?: NodeJS.Timeout;
   deadlineTimer?: NodeJS.Timeout;
+  paceTimer?: NodeJS.Timeout;
 }
 
 @Injectable()
@@ -218,6 +234,7 @@ export class RaceService implements OnModuleDestroy {
       racer.finished = true;
       racer.progress = 100;
       racer.completionTimeMs = score.elapsedMs;
+      this.capturePace(racer, runtime, now.getTime());
       await this.participantRepository.update(racer.participantId, {
         status: MatchParticipantStatus.FINISHED,
         finished_at: now,
@@ -293,7 +310,7 @@ export class RaceService implements OnModuleDestroy {
       deadline_at: runtime.deadlineAt,
       server_now: Date.now(),
       duration_seconds: runtime.durationSeconds,
-      racers: this.standings(runtime),
+      racers: this.standings(runtime, runtime.phase === 'finished'),
     };
   }
 
@@ -317,6 +334,12 @@ export class RaceService implements OnModuleDestroy {
       deadline_at: runtime.deadlineAt,
       server_now: Date.now(),
     });
+    for (const racer of runtime.racers.values()) {
+      this.capturePace(racer, runtime, runtime.startedAt);
+    }
+    runtime.paceTimer = setInterval(() => {
+      this.captureOpenPace(runtime);
+    }, 1_000);
     runtime.deadlineTimer = setTimeout(
       () => {
         void this.finish(runtime.code).catch((error: unknown) => {
@@ -336,7 +359,14 @@ export class RaceService implements OnModuleDestroy {
     runtime.phase = 'finished';
     this.clearTimers(runtime);
     const finishedAt = new Date();
-    this.rescoreOpenRacers(runtime, finishedAt);
+    const endedAt = this.scoreEndedAt(runtime, finishedAt);
+    this.rescoreOpenRacers(runtime, endedAt);
+    for (const racer of runtime.racers.values()) {
+      if (!racer.finished) {
+        this.capturePace(racer, runtime, endedAt);
+      }
+    }
+    await this.markPersonalBests(runtime);
     const ranked = this.rank(runtime);
 
     try {
@@ -361,6 +391,11 @@ export class RaceService implements OnModuleDestroy {
             is_finished: racer.finished,
             final_progress: racer.progress.toFixed(2),
             status: this.resultStatus(racer),
+            pace_samples: racer.paceSamples.length > 0 ? racer.paceSamples : null,
+            correct_keystrokes: racer.correctKeystrokes,
+            incorrect_keystrokes: racer.incorrectKeystrokes,
+            corrections: racer.corrections,
+            is_personal_best: racer.personalBest,
           }),
         ),
       );
@@ -380,7 +415,7 @@ export class RaceService implements OnModuleDestroy {
 
     this.emit(runtime.code, 'race:finished', {
       server_now: Date.now(),
-      racers: this.standings(runtime),
+      racers: this.standings(runtime, true),
     });
   }
 
@@ -398,8 +433,9 @@ export class RaceService implements OnModuleDestroy {
   private freshRacer(player: RoomPlayer, participantId: string): RacerState {
     return {
       guestId: String(player.guest.id),
+      userId: player.guest.user?.id ? String(player.guest.user.id) : null,
       participantId,
-      nickname: player.guest.nickname,
+      nickname: guestDisplayName(player.guest),
       avatarUrl: player.guest.user?.avatar_url || player.guest.avatar?.asset_path || null,
       typedText: '',
       progress: 0,
@@ -408,6 +444,11 @@ export class RaceService implements OnModuleDestroy {
       accuracy: 0,
       correctChars: 0,
       incorrectChars: 0,
+      correctKeystrokes: 0,
+      incorrectKeystrokes: 0,
+      corrections: 0,
+      paceSamples: [],
+      personalBest: false,
       finished: false,
       completionTimeMs: null,
       disconnected: false,
@@ -444,22 +485,42 @@ export class RaceService implements OnModuleDestroy {
     });
   }
 
-  private standings(runtime: RaceRuntime): RaceStanding[] {
-    return this.rank(runtime).map((racer, index) => ({
-      guest_id: Number(racer.guestId),
-      nickname: racer.nickname,
-      avatar_url: racer.avatarUrl,
-      progress: racer.progress,
-      wpm: racer.netWpm,
-      accuracy: racer.accuracy,
-      finished: racer.finished,
-      rank: index + 1,
-      disconnected: racer.disconnected,
-      completion_time_ms: racer.completionTimeMs,
-    }));
+  private standings(runtime: RaceRuntime, withAnalytics = false): RaceStanding[] {
+    return this.rank(runtime).map((racer, index) => {
+      const standing: RaceStanding = {
+        guest_id: Number(racer.guestId),
+        nickname: racer.nickname,
+        avatar_url: racer.avatarUrl,
+        progress: racer.progress,
+        wpm: racer.netWpm,
+        accuracy: racer.accuracy,
+        finished: racer.finished,
+        rank: index + 1,
+        disconnected: racer.disconnected,
+        completion_time_ms: racer.completionTimeMs,
+      };
+      if (withAnalytics) {
+        standing.analytics = this.analyticsFor(racer);
+      }
+      return standing;
+    });
+  }
+
+  private analyticsFor(racer: RacerState): RaceAnalytics {
+    return {
+      pace: racer.paceSamples.map((sample) => ({ ...sample })),
+      correct_keystrokes: racer.correctKeystrokes,
+      incorrect_keystrokes: racer.incorrectKeystrokes,
+      corrections: racer.corrections,
+      personal_best: racer.personalBest,
+    };
   }
 
   private applyScore(racer: RacerState, runtime: RaceRuntime, typedText: string, endedAt: number) {
+    const delta = countTypingDelta(runtime.passage, racer.typedText, typedText);
+    racer.correctKeystrokes += delta.correctKeystrokes;
+    racer.incorrectKeystrokes += delta.incorrectKeystrokes;
+    racer.corrections += delta.corrections;
     const score = scoreRaceProgress(
       runtime.passage,
       typedText,
@@ -477,20 +538,137 @@ export class RaceService implements OnModuleDestroy {
     return score;
   }
 
-  private rescoreOpenRacers(runtime: RaceRuntime, finishedAt: Date): void {
+  private scoreEndedAt(runtime: RaceRuntime, finishedAt: Date): number {
+    if (runtime.deadlineAt != null && finishedAt.getTime() >= runtime.deadlineAt) {
+      return runtime.deadlineAt;
+    }
+    return finishedAt.getTime();
+  }
+
+  private rescoreOpenRacers(runtime: RaceRuntime, endedAt: number): void {
     if (runtime.startedAt == null) {
       return;
     }
-    const endedAt =
-      runtime.deadlineAt != null && finishedAt.getTime() >= runtime.deadlineAt
-        ? runtime.deadlineAt
-        : finishedAt.getTime();
     for (const racer of runtime.racers.values()) {
       if (racer.finished) {
         continue;
       }
       this.applyScore(racer, runtime, racer.typedText, endedAt);
     }
+  }
+
+  private capturePace(racer: RacerState, runtime: RaceRuntime, endedAt: number): void {
+    if (runtime.startedAt == null) {
+      return;
+    }
+    appendPaceSample(
+      racer.paceSamples,
+      {
+        t: Math.max(0, endedAt - runtime.startedAt),
+        prefix: correctPrefixLength(runtime.passage, racer.typedText),
+        incorrect: racer.incorrectChars,
+        typed: racer.typedText.length,
+      },
+      runtime.durationSeconds,
+    );
+  }
+
+  private captureOpenPace(runtime: RaceRuntime): void {
+    if (runtime.phase !== 'running' || runtime.startedAt == null) {
+      return;
+    }
+    const now = Date.now();
+    for (const racer of runtime.racers.values()) {
+      if (racer.finished) {
+        continue;
+      }
+      this.capturePace(racer, runtime, now);
+    }
+  }
+
+  private async markPersonalBests(runtime: RaceRuntime): Promise<void> {
+    try {
+      const bests = await this.previousBests(runtime);
+      for (const racer of runtime.racers.values()) {
+        const prior = bests.get(racer.guestId);
+        racer.personalBest = racer.finished && prior != null && racer.netWpm > prior;
+      }
+    } catch (error) {
+      this.logger.error(`Could not compare race personal bests for room ${runtime.code}`, error);
+    }
+  }
+
+  private async previousBests(runtime: RaceRuntime): Promise<Map<string, number>> {
+    const guestIds = [...runtime.racers.keys()];
+    if (guestIds.length === 0) {
+      return new Map();
+    }
+
+    const userIds = [
+      ...new Set(
+        [...runtime.racers.values()]
+          .map((racer) => racer.userId)
+          .filter((userId): userId is string => Boolean(userId)),
+      ),
+    ];
+    const identity =
+      userIds.length > 0
+        ? '(guest.id IN (:...guestIds) OR account.id IN (:...userIds))'
+        : 'guest.id IN (:...guestIds)';
+    const rows = await this.resultRepository
+      .createQueryBuilder('result')
+      .innerJoin('result.guest', 'guest')
+      .innerJoin('result.match', 'match')
+      .leftJoin('guest.user', 'account')
+      .select('guest.id', 'guest_id')
+      .addSelect('account.id', 'user_id')
+      .addSelect('MAX(result.net_wpm)', 'best_wpm')
+      .where('result.is_finished = :finished', { finished: true })
+      .andWhere('match.id != :matchId', { matchId: runtime.matchId })
+      .andWhere(identity, { guestIds, userIds })
+      .groupBy('guest.id')
+      .addGroupBy('account.id')
+      .getRawMany<{
+        guest_id: string | number;
+        user_id: string | number | null;
+        best_wpm: string | number | null;
+      }>();
+
+    const byGuest = new Map<string, number>();
+    const byUser = new Map<string, number>();
+    for (const row of rows) {
+      const wpm = Number(row.best_wpm);
+      if (!Number.isFinite(wpm)) {
+        continue;
+      }
+      const guestId = String(row.guest_id);
+      const guestBest = byGuest.get(guestId);
+      byGuest.set(guestId, guestBest == null ? wpm : Math.max(guestBest, wpm));
+      if (row.user_id != null && String(row.user_id).length > 0) {
+        const userId = String(row.user_id);
+        const userBest = byUser.get(userId);
+        byUser.set(userId, userBest == null ? wpm : Math.max(userBest, wpm));
+      }
+    }
+
+    const bests = new Map<string, number>();
+    for (const racer of runtime.racers.values()) {
+      const candidates: number[] = [];
+      const guestBest = byGuest.get(racer.guestId);
+      if (guestBest != null) {
+        candidates.push(guestBest);
+      }
+      if (racer.userId) {
+        const userBest = byUser.get(racer.userId);
+        if (userBest != null) {
+          candidates.push(userBest);
+        }
+      }
+      if (candidates.length > 0) {
+        bests.set(racer.guestId, Math.max(...candidates));
+      }
+    }
+    return bests;
   }
 
   private resultStatus(racer: RacerState): MatchResultStatus {
@@ -530,6 +708,10 @@ export class RaceService implements OnModuleDestroy {
     if (runtime.deadlineTimer) {
       clearTimeout(runtime.deadlineTimer);
       runtime.deadlineTimer = undefined;
+    }
+    if (runtime.paceTimer) {
+      clearInterval(runtime.paceTimer);
+      runtime.paceTimer = undefined;
     }
   }
 

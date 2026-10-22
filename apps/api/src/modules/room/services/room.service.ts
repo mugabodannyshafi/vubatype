@@ -17,6 +17,7 @@ import { Language } from 'src/database/entities/language.entity';
 import { Match } from 'src/database/entities/match.entity';
 import { RoomPlayer } from 'src/database/entities/room-player.entity';
 import { Room } from 'src/database/entities/room.entity';
+import { guestDisplayName } from 'src/modules/guest/guest-display-name';
 import { LanguageInfo, LanguageService } from 'src/modules/language/services/language.service';
 import { raceDurationSeconds } from 'src/modules/race/race.config';
 import { CreateRoomDto } from '../dto/create-room.dto';
@@ -465,7 +466,7 @@ export class RoomService extends BaseService {
   private toGuestView(guest: GuestSession): RoomGuestView {
     return {
       id: Number(guest.id),
-      nickname: guest.nickname,
+      nickname: guestDisplayName(guest),
       avatar_url: guest.user?.avatar_url || guest.avatar?.asset_path || null,
     };
   }

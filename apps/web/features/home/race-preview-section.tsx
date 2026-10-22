@@ -9,7 +9,7 @@ export function RacePreviewSection() {
           On the track
         </h2>
         <p className="text-sm leading-6 text-muted">
-          Runners advance as players type correctly. These racers are a preview, not a live match.
+          Cars advance as players type correctly. These racers are a preview, not a live match.
         </p>
       </div>
       <RaceTrack label="Preview" racers={RACE_PREVIEW} />

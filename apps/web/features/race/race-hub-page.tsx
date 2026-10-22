@@ -54,6 +54,7 @@ export function RaceHubPage() {
       router.push(`/rooms/${room.code}`);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Could not create the room.");
+    } finally {
       setCreating(false);
     }
   }
@@ -128,8 +129,8 @@ export function RaceHubPage() {
             </p>
           </Card.Content>
           <Card.Footer>
-            <AppButton isDisabled={creating} onPress={() => void onCreate()}>
-              {creating ? "Creating" : "Create room"}
+            <AppButton isPending={creating} onPress={() => void onCreate()}>
+              Create room
             </AppButton>
           </Card.Footer>
         </Card>
