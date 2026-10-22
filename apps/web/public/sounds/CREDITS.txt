@@ -1,0 +1,34 @@
+Typing keystroke samples
+========================
+
+Files
+-----
+key-1.wav
+key-2.wav
+key-3.wav
+key-4.wav
+
+Source
+------
+"bb - Keyboard Sounds (Mar 2021)" by Benjamin Burnes (abstractionmusic.com).
+Public-domain mirror: https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds
+
+Original file names, before trimming:
+key-1.wav <- "Keyboard - Key 1.wav"
+key-2.wav <- "Keyboard - Key 2.wav"
+key-3.wav <- "Keyboard - Key 3.wav"
+key-4.wav <- "Keyboard - Key 4.wav"
+
+Licence
+-------
+CC0 1.0 Universal (Public Domain Dedication).
+https://creativecommons.org/public-domain/zero/1.0/
+
+The pack is public domain. Attribution is encouraged, not required.
+Commercial use, no payment, and no attribution are required.
+
+Modifications
+-------------
+Each file was converted from stereo 44.1 kHz to mono 22.05 kHz, trimmed to the
+opening keystroke (78 ms), faded at the edges, and peak-normalised to -1 dBFS.
+Playback variation is applied at runtime and does not alter these files.
